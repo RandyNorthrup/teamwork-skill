@@ -1,5 +1,7 @@
 # Teamwork skills
 
+[![certify](https://github.com/RandyNorthrup/teamwork-skill/actions/workflows/certify.yml/badge.svg?branch=main)](https://github.com/RandyNorthrup/teamwork-skill/actions/workflows/certify.yml)
+
 Teamwork provides two agent-agnostic project continuity skills:
 
 - `teamwork-handoff`: creates or refreshes secure `.teamwork/` payload in repository root, then seals it for transfer.

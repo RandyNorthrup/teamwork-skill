@@ -45,6 +45,7 @@ The four host-Windows runs skipped only directory-symlink creation because that 
 - A zero-history Codex agent completed a real pending task, passed five unchanged acceptance tests, and refreshed a ready payload from revision 1 to 2.
 - A Kubuntu producer payload transferred with its Git repository to a distinct macOS path, resumed with a different agent identity, completed and committed the safe action, and resealed the same payload ID from revision 1 to 2.
 - Independent security, operability, and release audits found no unresolved blocking issue after the macOS and cross-platform typing fixes.
+- Public GitHub Actions run `32037272973` passed the full Windows, Ubuntu, and macOS matrix on Python 3.11-3.14, open-format validation, and deterministic package job at post-release commit `d29666f6ec8a5cd6826742b4b9ecbf943553caa3`.
 
 Machine-readable evidence is under `certification-results/`; `index.json` binds each report by SHA-256. Detailed forward-agent evidence is in [INDEPENDENT_FORWARD_TEST.md](INDEPENDENT_FORWARD_TEST.md), and transfer evidence is in [CROSS_MACHINE_TRANSFER.md](CROSS_MACHINE_TRANSFER.md).
 
@@ -73,7 +74,7 @@ Machine-readable evidence is under `certification-results/`; `index.json` binds 
 
 ## Claim boundaries
 
-- The checked-in GitHub Actions workflow declares the full three-OS by four-Python hosted matrix, but no hosted run is claimed because this repository has no configured remote. The table above is executed local/VM evidence.
+- Hosted CI evidence postdates release source `d74b55d74956ce304ee495747729d502d15936d7`; it validates the same runtime files plus CI/test portability fixes and does not redefine or rebuild the certified v1.0.0 artifact.
 - Cross-machine certification covers one Kubuntu-to-macOS route and one payload, not every transport or filesystem.
 - Independent-agent evidence covers one fresh Codex agent. Gemini model behavior, Claude Code model behavior, and other clients remain unclaimed.
 - Gemini evidence proves local discovery, not model execution.
