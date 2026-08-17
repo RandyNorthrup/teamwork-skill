@@ -11,6 +11,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import zipfile
 from datetime import datetime, timezone
@@ -60,9 +61,37 @@ def is_unsafe_link(path: Path) -> bool:
     )
 
 
+def canonicalize_macos_system_alias(path: Path) -> Path:
+    """Resolve only Apple's fixed /var and /tmp compatibility aliases.
+
+    macOS returns temporary paths below ``/var`` even though that root entry is
+    a system-owned link to ``/private/var``. Arbitrary linked descendants must
+    still fail the output-path check.
+    """
+    if sys.platform != "darwin":
+        return path
+    aliases = (
+        (Path("/var"), Path("/private/var")),
+        (Path("/tmp"), Path("/private/tmp")),
+    )
+    for alias, expected in aliases:
+        try:
+            relative = path.relative_to(alias)
+        except ValueError:
+            continue
+        try:
+            if not alias.is_symlink() or alias.resolve(strict=True) != expected:
+                continue
+        except OSError:
+            continue
+        return expected / relative
+    return path
+
+
 def ensure_safe_output_path(path: Path, label: str) -> Path:
     """Validate the lexical path before resolving any filesystem links."""
     supplied = Path(os.path.abspath(str(path.expanduser())))
+    supplied = canonicalize_macos_system_alias(supplied)
     cursor = supplied.parent
     while True:
         if cursor.exists() and is_unsafe_link(cursor):

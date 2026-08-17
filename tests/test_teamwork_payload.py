@@ -2084,6 +2084,29 @@ class PackagingTests(unittest.TestCase):
                         self.assertFalse((target / "release.zip").exists())
                     finally:
                         os.rmdir(junction)
+        else:
+            with tempfile.TemporaryDirectory() as temporary:
+                temporary_root = Path(temporary).resolve()
+                target = temporary_root / "target"
+                target.mkdir()
+                linked_parent = temporary_root / "linked-parent"
+                linked_parent.symlink_to(target, target_is_directory=True)
+                linked_output = linked_parent / "release.zip"
+                failed = subprocess.run(
+                    [
+                        sys.executable,
+                        str(ROOT / "scripts" / "build_release.py"),
+                        "--output",
+                        str(linked_output),
+                    ],
+                    cwd=ROOT,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(2, failed.returncode)
+                self.assertIn("link or reparse point", failed.stdout)
+                self.assertFalse((target / "release.zip").exists())
 
     def test_compatibility_document_covers_supported_harnesses(self) -> None:
         text = (ROOT / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8")

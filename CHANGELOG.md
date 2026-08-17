@@ -12,3 +12,4 @@ All notable changes use Semantic Versioning and are recorded here.
 - Added deterministic allowlisted release packaging from immutable Git blobs and committed VERSION with replacement objects disabled for clean cross-platform builds, double-captured development version/source provenance, recoverable ZIP/sidecar publication, exact installed-byte verification, fully bound SPDX 2.3 SBOM verification and official validation, and transactional install/upgrade/transfer/uninstall guidance.
 - Added pinned multi-OS Python 3.11-3.14 CI, cross-platform certification tooling, and independent forward-test protocol.
 - Added pinned JSON Schema typing stubs and portable Windows process-probe typing so the same strict mypy gate runs on Windows, Linux, and macOS.
+- Accepted only the fixed macOS `/var` and `/tmp` compatibility aliases for release output while retaining fail-closed rejection of arbitrary linked output parents.
