@@ -1281,7 +1281,7 @@ class PackagingTests(unittest.TestCase):
             capture_output=True,
             check=True,
         ).stdout.strip()
-        files = build_release.git_source_files(commit)
+        version_bytes, files = build_release.git_release_capture(commit)
         expected = subprocess.run(
             [
                 "git",
@@ -1294,10 +1294,128 @@ class PackagingTests(unittest.TestCase):
             check=True,
         ).stdout
         self.assertEqual(expected, files["teamwork-handoff/SKILL.md"])
+        expected_version = subprocess.run(
+            ["git", "-C", str(ROOT), "show", f"{commit}:VERSION"],
+            capture_output=True,
+            check=True,
+        ).stdout
+        self.assertEqual(expected_version, version_bytes)
+        self.assertEqual("1.0.0", build_release.parse_version(version_bytes))
         self.assertEqual(
             files["teamwork-handoff/scripts/teamwork_payload.py"],
             files["teamwork-resume/scripts/teamwork_payload.py"],
         )
+
+    def test_git_object_reads_ignore_local_replace_refs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary) / "replace-fixture"
+            repo.mkdir()
+
+            def git(*args: str) -> str:
+                return subprocess.run(
+                    ["git", "-C", str(repo), *args],
+                    text=True,
+                    encoding="utf-8",
+                    capture_output=True,
+                    check=True,
+                ).stdout.strip()
+
+            git("init")
+            git("config", "user.email", "replace@example.invalid")
+            git("config", "user.name", "Replace Fixture")
+            probe = repo / "probe.txt"
+            probe.write_text("original\n", encoding="utf-8")
+            git("add", "probe.txt")
+            git("commit", "-m", "original")
+            original = git("rev-parse", "HEAD")
+            probe.write_text("replacement\n", encoding="utf-8")
+            git("commit", "-am", "replacement")
+            replacement = git("rev-parse", "HEAD")
+            git("checkout", "--detach", original)
+            git("replace", original, replacement)
+            self.assertEqual("replacement", git("show", "HEAD:probe.txt"))
+            with mock.patch.object(build_release, "ROOT", repo):
+                captured = build_release.git_capture_bytes(
+                    128, "show", "HEAD:probe.txt"
+                )
+                provenance = build_release.git_provenance(require_clean=True)
+            self.assertEqual(b"original\n", captured)
+            self.assertEqual(original, provenance["commit"])
+            self.assertFalse(provenance["dirty"])
+
+            archive_repo = Path(temporary) / "archive-fixture"
+            subprocess.run(
+                [
+                    "git",
+                    "clone",
+                    "--quiet",
+                    "--no-local",
+                    str(ROOT),
+                    str(archive_repo),
+                ],
+                capture_output=True,
+                check=True,
+            )
+
+            def archive_git(*args: str) -> str:
+                return subprocess.run(
+                    ["git", "-C", str(archive_repo), *args],
+                    text=True,
+                    encoding="utf-8",
+                    capture_output=True,
+                    check=True,
+                ).stdout.strip()
+
+            archive_git("config", "user.email", "replace@example.invalid")
+            archive_git("config", "user.name", "Replace Fixture")
+            archive_original = archive_git("rev-parse", "HEAD")
+            (archive_repo / "VERSION").write_text("9.9.9\n", encoding="utf-8")
+            archive_git("commit", "-am", "replacement version")
+            archive_replacement = archive_git("rev-parse", "HEAD")
+            archive_git("checkout", "--detach", archive_original)
+            archive_git("replace", archive_original, archive_replacement)
+            replaced_archive = Path(temporary) / "replace-proof.zip"
+            with mock.patch.object(build_release, "ROOT", archive_repo):
+                result = build_release.build(replaced_archive, require_clean=True)
+            self.assertEqual("1.0.0", result["version"])
+            with zipfile.ZipFile(replaced_archive) as archive:
+                manifest = json.loads(archive.read("release-manifest.json"))
+            self.assertEqual("1.0.0", manifest["version"])
+            self.assertEqual(archive_original, manifest["source"]["commit"])
+
+            archive_git("replace", "-d", archive_original)
+            (archive_repo / "VERSION").write_text("8.8.8\n", encoding="utf-8")
+            archive_git("update-index", "--assume-unchanged", "VERSION")
+            self.assertEqual("", archive_git("status", "--porcelain"))
+            filtered_archive = Path(temporary) / "working-filter-proof.zip"
+            with mock.patch.object(build_release, "ROOT", archive_repo):
+                result = build_release.build(filtered_archive, require_clean=True)
+            self.assertEqual("1.0.0", result["version"])
+            with zipfile.ZipFile(filtered_archive) as archive:
+                manifest = json.loads(archive.read("release-manifest.json"))
+            self.assertEqual("1.0.0", manifest["version"])
+            self.assertEqual(archive_original, manifest["source"]["commit"])
+
+    def test_dirty_capture_rejects_version_or_source_race(self) -> None:
+        provenance = {
+            "available": True,
+            "commit": "a" * 40,
+            "created_at": "2026-08-17T00:00:00Z",
+            "dirty": True,
+            "object_format": "sha1",
+        }
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            mock.patch.object(build_release, "git_provenance", return_value=provenance),
+            mock.patch.object(
+                build_release,
+                "working_release_capture",
+                side_effect=[(b"1.0.0\n", {}), (b"1.0.1\n", {})],
+            ),
+        ):
+            with self.assertRaises(RuntimeError) as raised:
+                build_release.build(Path(temporary) / "release.zip")
+        self.assertIn("changed while being captured", str(raised.exception))
 
     def test_sync_check_is_read_only_and_detects_drift(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

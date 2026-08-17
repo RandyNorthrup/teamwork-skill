@@ -27,7 +27,7 @@ See [payload contract](docs/PAYLOAD_CONTRACT.md), [security model](docs/SECURITY
 See [harness compatibility](docs/COMPATIBILITY.md) for Codex, Claude Code, Gemini CLI, and generic Agent Skills installation paths and tested claim boundaries.
 See [independent forward-test evidence](docs/INDEPENDENT_FORWARD_TEST.md) for zero-history prompt controls, artifact hashes, unchanged-test proof, and claim limits.
 
-The release includes an SPDX 2.3 software bill of materials with SHA-1 and SHA-256 file checksums, per-file release digests, source commit/dirty provenance, and a conservative all-rights-reserved license notice. Clean releases read immutable Git blobs from the recorded commit, so checkout line-ending filters cannot change artifact bytes. Certification validates the SBOM with the official SPDX Python tools. The SHA-256 sidecar provides integrity, not publisher authentication.
+The release includes an SPDX 2.3 software bill of materials with SHA-1 and SHA-256 file checksums, per-file release digests, source commit/dirty provenance, and a conservative all-rights-reserved license notice. Clean releases read the version and allowlisted files from immutable Git blobs in the recorded commit with replacement objects disabled, so checkout filters and local replacement refs cannot change artifact bytes. Certification validates the SBOM with the official SPDX Python tools. The SHA-256 sidecar provides integrity, not publisher authentication.
 
 ## Develop and certify
 

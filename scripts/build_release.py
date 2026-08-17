@@ -38,9 +38,9 @@ SKILL_FILES = (
     "scripts/teamwork_payload.py",
 )
 ROOT_FILES = {
-    "INSTALL.md": ROOT / "INSTALL.md",
-    "LICENSE.txt": ROOT / "LICENSE.txt",
-    "verify_release.py": ROOT / "scripts" / "verify_release.py",
+    "INSTALL.md": "INSTALL.md",
+    "LICENSE.txt": "LICENSE.txt",
+    "verify_release.py": "scripts/verify_release.py",
 }
 CANONICAL_FILES = {
     "scripts/teamwork_payload.py": "src/teamwork_payload.py",
@@ -142,7 +142,8 @@ def source_files() -> dict[str, bytes]:
         for relative in SKILL_FILES:
             path = skill_root / relative
             files[f"{skill}/{relative}"] = path.read_bytes()
-    for relative, path in ROOT_FILES.items():
+    for relative, repository_path in ROOT_FILES.items():
+        path = ROOT / repository_path
         if is_unsafe_link(path) or not path.is_file():
             raise RuntimeError(f"Required release file is missing or unsafe: {path}")
         files[relative] = path.read_bytes()
@@ -153,11 +154,18 @@ def source_files() -> dict[str, bytes]:
     return validate_source_files(files, canonical_contents)
 
 
+def git_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    environment["GIT_NO_REPLACE_OBJECTS"] = "1"
+    return environment
+
+
 def git_capture_bytes(max_bytes: int, *args: str) -> bytes:
     result = subprocess.run(
         ["git", "-C", str(ROOT), *args],
         capture_output=True,
         check=False,
+        env=git_environment(),
         timeout=30,
     )
     if result.returncode != 0:
@@ -187,7 +195,7 @@ def git_blob(commit: str, repository_path: str) -> bytes:
     return content
 
 
-def git_source_files(commit: str) -> dict[str, bytes]:
+def git_release_capture(commit: str) -> tuple[bytes, dict[str, bytes]]:
     """Read clean-release bytes from immutable Git blobs, not checkout filters."""
     archive_to_repository = {
         **{
@@ -195,13 +203,12 @@ def git_source_files(commit: str) -> dict[str, bytes]:
             for skill in SKILLS
             for relative in SKILL_FILES
         },
-        **{
-            archive_path: path.relative_to(ROOT).as_posix()
-            for archive_path, path in ROOT_FILES.items()
-        },
+        **ROOT_FILES,
     }
-    expected_repository_paths = set(archive_to_repository.values()) | set(
-        CANONICAL_FILES.values()
+    expected_repository_paths = (
+        set(archive_to_repository.values())
+        | set(CANONICAL_FILES.values())
+        | {"VERSION"}
     )
     tree_output = git_capture_bytes(
         MAX_RELEASE_FILE_BYTES,
@@ -249,7 +256,31 @@ def git_source_files(commit: str) -> dict[str, bytes]:
         archive_path: repository_contents[repository_path]
         for archive_path, repository_path in CANONICAL_FILES.items()
     }
-    return validate_source_files(files, canonical_contents)
+    return repository_contents["VERSION"], validate_source_files(
+        files, canonical_contents
+    )
+
+
+def git_source_files(commit: str) -> dict[str, bytes]:
+    return git_release_capture(commit)[1]
+
+
+def working_release_capture() -> tuple[bytes, dict[str, bytes]]:
+    version_path = ROOT / "VERSION"
+    version_bytes = version_path.read_bytes()
+    if len(version_bytes) > 128:
+        raise RuntimeError("VERSION exceeds its size limit")
+    return version_bytes, source_files()
+
+
+def parse_version(content: bytes) -> str:
+    try:
+        text = content.decode("utf-8", errors="strict")
+    except UnicodeError as exc:
+        raise RuntimeError("VERSION is not strict UTF-8") from exc
+    if not re.fullmatch(f"{SEMVER_PATTERN}(?:\\r?\\n)?", text):
+        raise RuntimeError("VERSION is not canonical SemVer")
+    return text.rstrip("\r\n")
 
 
 def zip_info(name: str) -> zipfile.ZipInfo:
@@ -347,6 +378,7 @@ def git_provenance(require_clean: bool) -> dict[str, object]:
             errors="replace",
             capture_output=True,
             check=False,
+            env=git_environment(),
             timeout=30,
         )
 
@@ -450,19 +482,17 @@ def commit_release_pair(
 
 
 def build(output: Path, require_clean: bool = False) -> dict[str, object]:
-    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    if not re.fullmatch(SEMVER_PATTERN, version):
-        raise RuntimeError("VERSION is not valid SemVer")
     provenance = git_provenance(require_clean)
     if provenance["available"] is True and provenance["dirty"] is False:
         commit = provenance["commit"]
         if not isinstance(commit, str):
             raise RuntimeError("Clean Git source provenance is missing a commit")
-        files = git_source_files(commit)
+        version_bytes, files = git_release_capture(commit)
     else:
-        files = source_files()
-        if source_files() != files:
+        version_bytes, files = working_release_capture()
+        if working_release_capture() != (version_bytes, files):
             raise RuntimeError("Release source files changed while being captured")
+    version = parse_version(version_bytes)
     confirmed_provenance = git_provenance(require_clean)
     if confirmed_provenance != provenance:
         raise RuntimeError("Git source provenance changed while release was captured")
