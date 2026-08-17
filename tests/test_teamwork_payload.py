@@ -1273,6 +1273,32 @@ class TeamworkPayloadE2E(unittest.TestCase):
 
 
 class PackagingTests(unittest.TestCase):
+    def test_clean_release_reads_commit_canonical_git_blobs(self) -> None:
+        commit = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+            text=True,
+            encoding="utf-8",
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        files = build_release.git_source_files(commit)
+        expected = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(ROOT),
+                "show",
+                f"{commit}:skills/teamwork-handoff/SKILL.md",
+            ],
+            capture_output=True,
+            check=True,
+        ).stdout
+        self.assertEqual(expected, files["teamwork-handoff/SKILL.md"])
+        self.assertEqual(
+            files["teamwork-handoff/scripts/teamwork_payload.py"],
+            files["teamwork-resume/scripts/teamwork_payload.py"],
+        )
+
     def test_sync_check_is_read_only_and_detects_drift(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             fixture = Path(temporary)

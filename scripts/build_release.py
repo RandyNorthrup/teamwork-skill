@@ -42,6 +42,11 @@ ROOT_FILES = {
     "LICENSE.txt": ROOT / "LICENSE.txt",
     "verify_release.py": ROOT / "scripts" / "verify_release.py",
 }
+CANONICAL_FILES = {
+    "scripts/teamwork_payload.py": "src/teamwork_payload.py",
+    "references/payload-contract.md": "docs/PAYLOAD_CONTRACT.md",
+    "references/teamwork-manifest.schema.json": "schemas/teamwork-manifest.schema.json",
+}
 
 
 def is_unsafe_link(path: Path) -> bool:
@@ -88,7 +93,32 @@ def content_identity(files: dict[str, bytes]) -> str:
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
+def validate_source_files(
+    files: dict[str, bytes], canonical_contents: dict[str, bytes]
+) -> dict[str, bytes]:
+    for relative, expected in canonical_contents.items():
+        for skill in SKILLS:
+            packaged = files.get(f"{skill}/{relative}")
+            if packaged != expected:
+                raise RuntimeError(
+                    f"Embedded resource drift: {skill}/{relative}; run scripts/sync_skills.py"
+                )
+    total = 0
+    for name, content in files.items():
+        if name.startswith("/") or ".." in Path(name).parts or "\\" in name:
+            raise RuntimeError(f"Unsafe archive path: {name}")
+        if len(content) > MAX_RELEASE_FILE_BYTES:
+            raise RuntimeError(
+                f"Release file exceeds {MAX_RELEASE_FILE_BYTES} bytes: {name}"
+            )
+        total += len(content)
+    if total > MAX_RELEASE_TOTAL_BYTES:
+        raise RuntimeError(f"Release content exceeds {MAX_RELEASE_TOTAL_BYTES} bytes")
+    return files
+
+
 def source_files() -> dict[str, bytes]:
+    """Read a development build from the current working tree."""
     files: dict[str, bytes] = {}
     for skill in SKILLS:
         skill_root = ROOT / "skills" / skill
@@ -116,33 +146,110 @@ def source_files() -> dict[str, bytes]:
         if is_unsafe_link(path) or not path.is_file():
             raise RuntimeError(f"Required release file is missing or unsafe: {path}")
         files[relative] = path.read_bytes()
-    canonical = {
-        "scripts/teamwork_payload.py": ROOT / "src" / "teamwork_payload.py",
-        "references/payload-contract.md": ROOT / "docs" / "PAYLOAD_CONTRACT.md",
-        "references/teamwork-manifest.schema.json": ROOT
-        / "schemas"
-        / "teamwork-manifest.schema.json",
+    canonical_contents = {
+        archive_path: (ROOT / repository_path).read_bytes()
+        for archive_path, repository_path in CANONICAL_FILES.items()
     }
-    for relative, source in canonical.items():
-        expected = source.read_bytes()
-        for skill in SKILLS:
-            packaged = files.get(f"{skill}/{relative}")
-            if packaged != expected:
-                raise RuntimeError(
-                    f"Embedded resource drift: {skill}/{relative}; run scripts/sync_skills.py"
-                )
-    total = 0
-    for name, content in files.items():
-        if name.startswith("/") or ".." in Path(name).parts or "\\" in name:
-            raise RuntimeError(f"Unsafe archive path: {name}")
-        if len(content) > MAX_RELEASE_FILE_BYTES:
+    return validate_source_files(files, canonical_contents)
+
+
+def git_capture_bytes(max_bytes: int, *args: str) -> bytes:
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), *args],
+        capture_output=True,
+        check=False,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        detail = result.stderr[:4_096].decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"Git object read failed: git {' '.join(args)}: {detail}")
+    if len(result.stdout) > max_bytes or len(result.stderr) > 4_096:
+        raise RuntimeError(
+            f"Git object read exceeded its output limit: {' '.join(args)}"
+        )
+    return result.stdout
+
+
+def git_blob(commit: str, repository_path: str) -> bytes:
+    specification = f"{commit}:{repository_path}"
+    raw_size = git_capture_bytes(128, "cat-file", "-s", specification)
+    try:
+        size = int(raw_size.decode("ascii").strip())
+    except (UnicodeError, ValueError) as exc:
+        raise RuntimeError(f"Git blob size is invalid: {repository_path}") from exc
+    if size > MAX_RELEASE_FILE_BYTES:
+        raise RuntimeError(
+            f"Release file exceeds {MAX_RELEASE_FILE_BYTES} bytes: {repository_path}"
+        )
+    content = git_capture_bytes(MAX_RELEASE_FILE_BYTES, "show", specification)
+    if len(content) != size:
+        raise RuntimeError(f"Git blob size changed while reading: {repository_path}")
+    return content
+
+
+def git_source_files(commit: str) -> dict[str, bytes]:
+    """Read clean-release bytes from immutable Git blobs, not checkout filters."""
+    archive_to_repository = {
+        **{
+            f"{skill}/{relative}": f"skills/{skill}/{relative}"
+            for skill in SKILLS
+            for relative in SKILL_FILES
+        },
+        **{
+            archive_path: path.relative_to(ROOT).as_posix()
+            for archive_path, path in ROOT_FILES.items()
+        },
+    }
+    expected_repository_paths = set(archive_to_repository.values()) | set(
+        CANONICAL_FILES.values()
+    )
+    tree_output = git_capture_bytes(
+        MAX_RELEASE_FILE_BYTES,
+        "ls-tree",
+        "-r",
+        "-z",
+        commit,
+        "--",
+        *(f"skills/{skill}" for skill in SKILLS),
+        *(
+            path
+            for path in sorted(expected_repository_paths)
+            if not path.startswith("skills/")
+        ),
+    )
+    observed: set[str] = set()
+    for raw_entry in tree_output.split(b"\0"):
+        if not raw_entry:
+            continue
+        try:
+            metadata, raw_path = raw_entry.split(b"\t", 1)
+            mode, object_type, _object_id = metadata.decode("ascii").split()
+            repository_path = raw_path.decode("utf-8", errors="strict")
+        except (UnicodeError, ValueError) as exc:
+            raise RuntimeError("Git tree metadata is invalid") from exc
+        if mode not in {"100644", "100755"} or object_type != "blob":
             raise RuntimeError(
-                f"Release file exceeds {MAX_RELEASE_FILE_BYTES} bytes: {name}"
+                f"Release source is not a regular Git blob: {repository_path}"
             )
-        total += len(content)
-    if total > MAX_RELEASE_TOTAL_BYTES:
-        raise RuntimeError(f"Release content exceeds {MAX_RELEASE_TOTAL_BYTES} bytes")
-    return files
+        observed.add(repository_path)
+    if observed != expected_repository_paths:
+        raise RuntimeError(
+            "Committed release source differs from allowlist; "
+            f"unexpected={sorted(observed - expected_repository_paths)}, "
+            f"missing={sorted(expected_repository_paths - observed)}"
+        )
+    repository_contents = {
+        path: git_blob(commit, path) for path in sorted(expected_repository_paths)
+    }
+    files = {
+        archive_path: repository_contents[repository_path]
+        for archive_path, repository_path in archive_to_repository.items()
+    }
+    canonical_contents = {
+        archive_path: repository_contents[repository_path]
+        for archive_path, repository_path in CANONICAL_FILES.items()
+    }
+    return validate_source_files(files, canonical_contents)
 
 
 def zip_info(name: str) -> zipfile.ZipInfo:
@@ -347,9 +454,15 @@ def build(output: Path, require_clean: bool = False) -> dict[str, object]:
     if not re.fullmatch(SEMVER_PATTERN, version):
         raise RuntimeError("VERSION is not valid SemVer")
     provenance = git_provenance(require_clean)
-    files = source_files()
-    if source_files() != files:
-        raise RuntimeError("Release source files changed while being captured")
+    if provenance["available"] is True and provenance["dirty"] is False:
+        commit = provenance["commit"]
+        if not isinstance(commit, str):
+            raise RuntimeError("Clean Git source provenance is missing a commit")
+        files = git_source_files(commit)
+    else:
+        files = source_files()
+        if source_files() != files:
+            raise RuntimeError("Release source files changed while being captured")
     confirmed_provenance = git_provenance(require_clean)
     if confirmed_provenance != provenance:
         raise RuntimeError("Git source provenance changed while release was captured")
