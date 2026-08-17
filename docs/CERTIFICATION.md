@@ -21,7 +21,7 @@ Teamwork v1.0.0 achieved all six claim levels above for this exact release:
 - Source state: clean, committed, SHA-1 Git object format
 - Release verifier: `ok:true`, `release_grade:true`, 14 payload files plus release manifest
 
-The evidence and documentation commit follows the release source commit and does not alter the certified ZIP. A local `v1.0.0` tag identifies the release source commit.
+Evidence and documentation commits follow the release source commit and do not alter the certified ZIP. Pushed annotated tag `v1.0.0` identifies the release source commit. Stable [GitHub Release v1.0.0](https://github.com/RandyNorthrup/teamwork-skill/releases/tag/v1.0.0) publishes the exact ZIP and checksum sidecar.
 
 ### Executed platform and Python matrix
 
@@ -46,6 +46,7 @@ The four host-Windows runs skipped only directory-symlink creation because that 
 - A Kubuntu producer payload transferred with its Git repository to a distinct macOS path, resumed with a different agent identity, completed and committed the safe action, and resealed the same payload ID from revision 1 to 2.
 - Independent security, operability, and release audits found no unresolved blocking issue after the macOS and cross-platform typing fixes.
 - Public GitHub Actions run `32037272973` passed the full Windows, Ubuntu, and macOS matrix on Python 3.11-3.14, open-format validation, and deterministic package job at post-release commit `d29666f6ec8a5cd6826742b4b9ecbf943553caa3`.
+- GitHub Release asset metadata reports ZIP digest `sha256:d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34`, exactly matching local certified bytes and published sidecar content.
 
 Machine-readable evidence is under `certification-results/`; `index.json` binds each report by SHA-256. Detailed forward-agent evidence is in [INDEPENDENT_FORWARD_TEST.md](INDEPENDENT_FORWARD_TEST.md), and transfer evidence is in [CROSS_MACHINE_TRANSFER.md](CROSS_MACHINE_TRANSFER.md).
 
@@ -79,6 +80,6 @@ Machine-readable evidence is under `certification-results/`; `index.json` binds 
 - Independent-agent evidence covers one fresh Codex agent. Gemini model behavior, Claude Code model behavior, and other clients remain unclaimed.
 - Gemini evidence proves local discovery, not model execution.
 - One missing producer-home source after cross-machine relocation was reported honestly; repository instructions remained present and unchanged.
-- The SHA-256 sidecar proves integrity only. No publisher signature or public release publication is claimed.
+- Public release publication is complete. SHA-256 asset metadata and sidecar prove byte integrity only; no publisher signature is claimed.
 
 Run `<python-3.11+> scripts/certify.py --require-clean --output <report.json>` from a clean committed checkout for a new candidate. Repeat VM, transfer, discovery, and fresh-agent evidence after any material runtime, package, or workflow change.

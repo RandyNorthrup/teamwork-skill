@@ -4,6 +4,8 @@ Teamwork requires Python 3.11 or newer and Git 2.22 or newer for the certified u
 
 ## Verify and extract a release
 
+Download v1.0.0 ZIP and checksum from the [official GitHub Release](https://github.com/RandyNorthrup/teamwork-skill/releases/tag/v1.0.0). Confirm filenames are `teamwork-skills-1.0.0.zip` and `teamwork-skills-1.0.0.zip.sha256`.
+
 1. Compare the downloaded ZIP SHA-256 with its `.zip.sha256` sidecar: use `Get-FileHash <archive> -Algorithm SHA256` on PowerShell, `sha256sum <archive>` on Linux, or `shasum -a 256 <archive>` on stock macOS.
 2. Extract into a new staging directory. Do not merge an unverified archive directly into a live skills directory.
 3. Call the extracted directory `<release-root>`. From it, run `<python-3.11+> verify_release.py .`. Install only when it reports both `"ok": true` and `"release_grade": true`. A valid development build with dirty or unavailable source provenance can report `ok:true` but is not a release-grade installation artifact.

@@ -8,6 +8,7 @@ All notable changes use Semantic Versioning and are recorded here.
 - Fixed GitHub Actions pip-cache discovery for `requirements-dev.txt` and normalized Windows short/long temporary-path test aliases.
 - Updated artifact upload to pinned `actions/upload-artifact` v7.0.1 for native Node.js 24 execution.
 - Proved hosted 3-OS by 4-Python certification, open-format validation, and deterministic packaging in GitHub Actions run `32037272973`.
+- Published stable/latest GitHub Release `v1.0.0` with exact certified ZIP and checksum sidecar; GitHub asset digest matches recorded archive SHA-256.
 
 ## 1.0.0 - 2026-08-17
 

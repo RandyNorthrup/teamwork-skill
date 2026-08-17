@@ -31,7 +31,7 @@ See [independent forward-test evidence](docs/INDEPENDENT_FORWARD_TEST.md) for ze
 
 ## Certified release
 
-Teamwork v1.0.0 is certified from source commit `d74b55d74956ce304ee495747729d502d15936d7`. The release archive SHA-256 is `d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34`.
+Teamwork v1.0.0 is certified from source commit `d74b55d74956ce304ee495747729d502d15936d7`. Download the [v1.0.0 GitHub Release](https://github.com/RandyNorthrup/teamwork-skill/releases/tag/v1.0.0). The release archive SHA-256 is `d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34`.
 
 The exact artifact passed the 65-test suite on Windows, Kubuntu, and macOS; Python 3.11–3.14 execution; official Agent Skills and SPDX validation; Gemini CLI discovery; a real Kubuntu-to-macOS transfer; and one isolated zero-history Codex continuation. See [certification evidence](docs/CERTIFICATION.md) and [cross-machine transfer evidence](docs/CROSS_MACHINE_TRANSFER.md) for scope and honest claim boundaries.
 
