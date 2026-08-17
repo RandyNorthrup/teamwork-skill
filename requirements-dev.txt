@@ -1,0 +1,5 @@
+jsonschema==4.26.0
+coverage==7.15.2
+mypy==1.20.0
+ruff==0.15.9
+spdx-tools==0.8.5

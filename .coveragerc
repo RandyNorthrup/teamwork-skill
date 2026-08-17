@@ -1,0 +1,12 @@
+[run]
+branch = True
+parallel = True
+patch = subprocess
+source =
+    src
+
+[report]
+exclude_also =
+    if __name__ == .__main__.:
+show_missing = True
+skip_empty = True

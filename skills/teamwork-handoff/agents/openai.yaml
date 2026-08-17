@@ -1,0 +1,4 @@
+interface:
+  display_name: "Teamwork Handoff"
+  short_description: "Build and refresh a portable project handoff"
+  default_prompt: "Use $teamwork-handoff to refresh the untracked project handoff payload before I stop work."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Teamwork Resume"
+  short_description: "Resume work from a verified project handoff"
+  default_prompt: "Use $teamwork-resume to verify the project handoff payload and continue the pending work."
