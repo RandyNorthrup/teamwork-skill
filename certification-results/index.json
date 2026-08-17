@@ -14,7 +14,7 @@
     "windows-host-py3.13.json": "b8879cd9c9bafad0d8e24a944be8da33ef9cf49926ca1daf75f2642865f05ac5",
     "windows-host-py3.14.0.json": "ad6e7a7ea3e88d88ce565b7d308ee454e9178a20a26d87c87f14be55982a9295",
     "windows11-vm-py3.14.6.json": "523f22e7d2f6670f3ab4f1a13471e5d3eb6d1704aad32605ca4169ec0b576d27",
-    "windows11-vm-tooling.json": "823e02b334c1904e17f57b3fb12204ef7649afbdc0fca4dead2a5b41b324c7eb"
+    "windows11-vm-tooling.json": "da141fbea7f77f236acec60a293be7cbee14ea59929a05243f3b238df82bd9df"
   },
   "result": "passed",
   "schema_version": "1.0.0",

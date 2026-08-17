@@ -1,9 +1,15 @@
-﻿{
-    "schema_version":  1,
-    "result":  "passed",
-    "mingit_release_tag":  "v2.55.0.windows.4",
-    "mingit_version":  "git version 2.55.0.windows.4",
-    "mingit_source_url":  "https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.4/MinGit-2.55.0.4-64-bit.zip",
-    "mingit_archive_sha256":  "4e03f94c2ffbf70be337e005cee02661c732dbfc81031a078bda9299b9a7d644",
-    "python_version":  "3.14.6"
+{
+  "artifact_sha256": "d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34",
+  "generated_at": "2026-08-17T07:49:30Z",
+  "mingit": {
+    "archive_sha256": "4e03f94c2ffbf70be337e005cee02661c732dbfc81031a078bda9299b9a7d644",
+    "release_tag": "v2.55.0.windows.4",
+    "source_url": "https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.4/MinGit-2.55.0.4-64-bit.zip",
+    "version": "git version 2.55.0.windows.4"
+  },
+  "purpose": "Sanitized provenance for the disposable Git runtime used by the Windows 11 VM certification.",
+  "python_version": "3.14.6",
+  "result": "passed",
+  "schema_version": "1.0.0",
+  "source_commit": "d74b55d74956ce304ee495747729d502d15936d7"
 }
