@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import gc
 import hashlib
+import io
 import json
 import os
 import re
@@ -1395,6 +1396,21 @@ class PackagingTests(unittest.TestCase):
                 manifest = json.loads(archive.read("release-manifest.json"))
             self.assertEqual("1.0.0", manifest["version"])
             self.assertEqual(archive_original, manifest["source"]["commit"])
+            with (
+                mock.patch.object(build_release, "ROOT", archive_repo),
+                mock.patch("sys.stdout", new_callable=io.StringIO) as output,
+            ):
+                return_code = build_release.main(["--require-clean", "--json"])
+            self.assertEqual(0, return_code, output.getvalue())
+            default_result = json.loads(output.getvalue())
+            self.assertEqual("1.0.0", default_result["version"])
+            self.assertEqual(
+                archive_repo / "dist" / "teamwork-skills-1.0.0.zip",
+                Path(default_result["archive"]),
+            )
+            self.assertFalse(
+                (archive_repo / "dist" / "teamwork-skills-8.8.8.zip").exists()
+            )
 
     def test_dirty_capture_rejects_version_or_source_race(self) -> None:
         provenance = {

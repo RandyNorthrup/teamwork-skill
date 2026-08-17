@@ -481,7 +481,7 @@ def commit_release_pair(
             sidecar_backup.unlink(missing_ok=True)
 
 
-def build(output: Path, require_clean: bool = False) -> dict[str, object]:
+def build(output: Path | None = None, require_clean: bool = False) -> dict[str, object]:
     provenance = git_provenance(require_clean)
     if provenance["available"] is True and provenance["dirty"] is False:
         commit = provenance["commit"]
@@ -520,6 +520,8 @@ def build(output: Path, require_clean: bool = False) -> dict[str, object]:
         > MAX_ARCHIVE_TOTAL_BYTES
     ):
         raise RuntimeError("Generated release archive exceeds the total size limit")
+    if output is None:
+        output = ROOT / "dist" / f"teamwork-skills-{version}.zip"
     output = ensure_safe_output_path(output, "Release output")
     sidecar = ensure_safe_output_path(Path(str(output) + ".sha256"), "Checksum sidecar")
     for skill in SKILLS:
@@ -572,12 +574,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--require-clean", action="store_true", help="Require committed clean source"
     )
     args = parser.parse_args(argv)
-    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    output = (
-        Path(args.output)
-        if args.output
-        else ROOT / "dist" / f"teamwork-skills-{version}.zip"
-    )
+    output = Path(args.output) if args.output else None
     try:
         result = build(output, require_clean=args.require_clean)
     except (OSError, RuntimeError, zipfile.BadZipFile) as exc:
