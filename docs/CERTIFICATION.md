@@ -13,15 +13,13 @@ Do not claim higher level from documentation, simulated operating-system paths, 
 
 ## Current result
 
-The live release candidate is `LocalE2ECertified` on Windows as of 2026-08-17 UTC. The pre-commit gate ran 51 tests, passed 50, and skipped one symbolic-link test because the local Windows token lacks symbolic-link privilege; the separate real Windows junction/reparse test passed. Branch coverage is 82.39%, above the enforced 80% threshold. Ruff, formatting, mypy, Draft 2020-12 schema validation, deterministic packaging, extracted release verification, and official SPDX validation passed.
+The live working tree is in final evidence refresh and does not inherit a certification claim from older bytes. Focused runtime, packaging, tamper, release-transaction, bounded-traversal, Windows junction, lint, type, schema, SBOM, Codex validator, and pinned official Agent Skills validator checks pass. Exact test count, coverage, source commit, archive hash, and cross-platform claims will be recorded only after a clean committed candidate is rebuilt and rerun.
 
-Both skills also pass the current Codex `quick_validate.py` and `agentskills/skills-ref` pinned at commit `69ef37e9424c0a7ea9dd2293b559e43ec8176379`.
-
-The candidate is not yet called `CrossPlatformCertified`, `CrossMachineTransferCertified`, or `IndependentAgentForwardTested`. Earlier evidence covered materially older bytes and is superseded. Final claims require one clean committed source identity, a rebuilt archive, Windows/Linux/macOS reruns, cross-machine transfer, and a new isolated forward-agent run against that exact archive.
+The candidate is not yet called `LocalE2ECertified`, `CrossPlatformCertified`, `CrossMachineTransferCertified`, `OpenFormatValidated`, or `IndependentAgentForwardTested`. Earlier evidence covered materially older bytes and is superseded. Final claims require one clean committed source identity, a rebuilt archive, validator reruns, Windows/Linux/macOS reruns, cross-machine transfer, harness discovery, and a new isolated forward-agent run against that exact archive.
 
 ## Required gates
 
-1. Both skill packages pass Codex `quick_validate.py` and the official Agent Skills reference validator.
+1. Both skill packages pass the pinned official Agent Skills reference validator; local Codex `quick_validate.py` is an additional compatibility check when available.
 2. Canonical and embedded scripts, contract, and schema are byte-identical.
 3. Manifest validates against bundled strict JSON Schema Draft 2020-12 and runtime invariants.
 4. Payload preparation is idempotent and preserves curated content.
@@ -42,4 +40,4 @@ The candidate is not yet called `CrossPlatformCertified`, `CrossMachineTransferC
 19. Case-variant tracked payloads, multiple custom payload names, terminal controls, generic private-key markers, and Windows junction/reparse write redirection fail closed.
 20. A fresh unrelated agent receives no hidden expected answer, resumes a sealed fixture through the released skill, completes real pending work, passes unchanged acceptance tests, and refreshes a verified ready payload.
 
-Run `python scripts/certify.py`; use remote VM evidence or hosted CI for cross-platform claims. Repeat isolated fresh-agent forward testing after material resume-workflow changes.
+Run `<python-3.11+> scripts/certify.py --require-clean --output <report.json>` from a clean committed checkout; use remote VM evidence or hosted CI for cross-platform claims. Repeat isolated fresh-agent forward testing after material resume-workflow changes.

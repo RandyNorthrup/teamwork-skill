@@ -6,7 +6,8 @@ All notable changes use Semantic Versioning and are recorded here.
 
 - Initial production release of `teamwork-handoff` and `teamwork-resume`.
 - Added canonical, untracked payload lifecycle; bounded agent-memory discovery; schema and checksum verification; relocation; source provenance; and transactional prepare/seal rollback.
-- Added repository and Git-exclude advisory locking, multi-payload ignore merging, case-insensitive tracked-path rejection, bounded pre-mutation snapshots, active Git output limits, and Windows reparse-point defenses.
+- Added canonical repository and Git-exclude advisory locking, multi-payload ignore merging, verification that every canonical payload file is ignored, case-insensitive tracked-path rejection, bounded pre-mutation snapshots, active Git output limits, and Windows reparse-point defenses.
 - Added strict runtime/schema parity, canonical UUID and Semantic Version checks, terminal-control rejection, and expanded private-key/token filtering.
-- Added deterministic allowlisted release packaging, source provenance, exact installed-byte verification, SPDX 2.3 SBOM generation and official validation, and install/upgrade/transfer/uninstall guidance.
+- Added bounded `scandir` source/search traversal with honest incomplete-discovery signaling and non-Git operation even when an old Git is present.
+- Added deterministic allowlisted release packaging, double-captured source provenance, recoverable ZIP/sidecar publication, exact installed-byte verification, fully bound SPDX 2.3 SBOM verification and official validation, and transactional install/upgrade/transfer/uninstall guidance.
 - Added pinned multi-OS Python 3.11-3.14 CI, cross-platform certification tooling, and independent forward-test protocol.

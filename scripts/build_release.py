@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -22,6 +23,7 @@ SKILLS = ("teamwork-handoff", "teamwork-resume")
 ARCHIVE_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 MAX_RELEASE_FILE_BYTES = 2_097_152
 MAX_RELEASE_TOTAL_BYTES = 10_485_760
+MAX_ARCHIVE_TOTAL_BYTES = 12_582_912
 SEMVER_PATTERN = (
     r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
     r"(?:-(?:(?:0|[1-9][0-9]*)|(?:[0-9]*[A-Za-z-][0-9A-Za-z-]*))"
@@ -77,6 +79,13 @@ def sha256_bytes(value: bytes) -> str:
 
 def sha1_bytes(value: bytes) -> str:
     return hashlib.sha1(value, usedforsecurity=False).hexdigest()
+
+
+def content_identity(files: dict[str, bytes]) -> str:
+    material = "".join(
+        f"{name}\0{sha256_bytes(content)}\n" for name, content in sorted(files.items())
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def source_files() -> dict[str, bytes]:
@@ -170,13 +179,13 @@ def build_sbom(
                 "spdxElementId": "SPDXRef-Package-Teamwork",
             }
         )
-    source_identity = provenance.get("commit")
+    source_identity = (
+        provenance.get("commit")
+        if provenance.get("available") is True and provenance.get("dirty") is False
+        else content_identity(files)
+    )
     if not isinstance(source_identity, str):
-        source_identity = hashlib.sha256(
-            "".join(
-                sha256_bytes(content) for _name, content in sorted(files.items())
-            ).encode("ascii")
-        ).hexdigest()
+        raise RuntimeError("Cannot derive SPDX source identity")
     created_at = provenance.get("created_at")
     if not isinstance(created_at, str):
         created_at = "1980-01-01T00:00:00Z"
@@ -237,12 +246,17 @@ def git_provenance(require_clean: bool) -> dict[str, object]:
     head = git("rev-parse", "HEAD")
     status = git("status", "--porcelain=v1", "--untracked-files=all")
     committed_at = git("show", "-s", "--format=%cI", "HEAD")
+    object_format_result = git("rev-parse", "--show-object-format")
+    object_format = object_format_result.stdout.strip()
+    if object_format not in {"sha1", "sha256"}:
+        object_format = "sha1" if len(head.stdout.strip()) == 40 else "sha256"
     available = (
         head.returncode == 0
         and bool(head.stdout.strip())
         and status.returncode == 0
         and committed_at.returncode == 0
         and bool(committed_at.stdout.strip())
+        and object_format in {"sha1", "sha256"}
     )
     dirty = bool(status.stdout.strip()) if available else None
     if require_clean and (not available or dirty):
@@ -266,7 +280,66 @@ def git_provenance(require_clean: bool) -> dict[str, object]:
         "commit": head.stdout.strip() if available else None,
         "created_at": created_at,
         "dirty": dirty,
+        "object_format": object_format if available else None,
     }
+
+
+def backup_existing(path: Path) -> Path | None:
+    if not path.exists():
+        return None
+    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as handle:
+        backup = Path(handle.name)
+    try:
+        shutil.copyfile(path, backup)
+        with backup.open("r+b") as handle:
+            os.fsync(handle.fileno())
+    except BaseException:
+        backup.unlink(missing_ok=True)
+        raise
+    return backup
+
+
+def commit_release_pair(
+    archive_temp: Path, output: Path, sidecar_temp: Path, sidecar: Path
+) -> None:
+    """Replace archive and sidecar as one recoverable filesystem transaction."""
+    output_backup: Path | None = None
+    sidecar_backup: Path | None = None
+    output_replaced = False
+    sidecar_replaced = False
+    try:
+        output_backup = backup_existing(output)
+        sidecar_backup = backup_existing(sidecar)
+        os.replace(archive_temp, output)
+        output_replaced = True
+        os.replace(sidecar_temp, sidecar)
+        sidecar_replaced = True
+    except BaseException as exc:
+        rollback_failures: list[str] = []
+        for path, backup, replaced in (
+            (output, output_backup, output_replaced),
+            (sidecar, sidecar_backup, sidecar_replaced),
+        ):
+            try:
+                if backup is not None:
+                    os.replace(backup, path)
+                elif replaced and path.exists():
+                    path.unlink()
+            except OSError as rollback_exc:
+                rollback_failures.append(f"{path}: {rollback_exc}")
+        if rollback_failures:
+            raise RuntimeError(
+                f"Release pair update failed ({exc}); rollback also failed: "
+                + "; ".join(rollback_failures)
+            ) from exc
+        raise RuntimeError(
+            f"Release pair update failed and was rolled back: {exc}"
+        ) from exc
+    finally:
+        if output_backup is not None:
+            output_backup.unlink(missing_ok=True)
+        if sidecar_backup is not None:
+            sidecar_backup.unlink(missing_ok=True)
 
 
 def build(output: Path, require_clean: bool = False) -> dict[str, object]:
@@ -275,6 +348,11 @@ def build(output: Path, require_clean: bool = False) -> dict[str, object]:
         raise RuntimeError("VERSION is not valid SemVer")
     provenance = git_provenance(require_clean)
     files = source_files()
+    if source_files() != files:
+        raise RuntimeError("Release source files changed while being captured")
+    confirmed_provenance = git_provenance(require_clean)
+    if confirmed_provenance != provenance:
+        raise RuntimeError("Git source provenance changed while release was captured")
     files["SBOM.spdx.json"] = build_sbom(version, files, provenance)
     release_manifest = {
         "archive_format": "teamwork-skills",
@@ -290,6 +368,15 @@ def build(output: Path, require_clean: bool = False) -> dict[str, object]:
     manifest_bytes = (
         json.dumps(release_manifest, indent=2, sort_keys=True) + "\n"
     ).encode("utf-8")
+    archive_files = dict(files)
+    archive_files["release-manifest.json"] = manifest_bytes
+    if any(len(content) > MAX_RELEASE_FILE_BYTES for content in archive_files.values()):
+        raise RuntimeError("Generated release metadata exceeds the per-file size limit")
+    if (
+        sum(len(content) for content in archive_files.values())
+        > MAX_ARCHIVE_TOTAL_BYTES
+    ):
+        raise RuntimeError("Generated release archive exceeds the total size limit")
     output = ensure_safe_output_path(output, "Release output")
     sidecar = ensure_safe_output_path(Path(str(output) + ".sha256"), "Checksum sidecar")
     for skill in SKILLS:
@@ -306,26 +393,25 @@ def build(output: Path, require_clean: bool = False) -> dict[str, object]:
         dir=output.parent, suffix=".zip", delete=False
     ) as handle:
         temporary = Path(handle.name)
+    sidecar_temp: Path | None = None
     try:
-        archive_files = dict(files)
-        archive_files["release-manifest.json"] = manifest_bytes
         with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_STORED) as archive:
             for name, content in sorted(archive_files.items()):
                 archive.writestr(zip_info(name), content)
-        os.replace(temporary, output)
+        with temporary.open("r+b") as handle:
+            os.fsync(handle.fileno())
+        digest = hashlib.sha256(temporary.read_bytes()).hexdigest()
+        sidecar_bytes = f"{digest}  {output.name}\n".encode("utf-8")
+        with tempfile.NamedTemporaryFile(dir=sidecar.parent, delete=False) as handle:
+            handle.write(sidecar_bytes)
+            handle.flush()
+            os.fsync(handle.fileno())
+            sidecar_temp = Path(handle.name)
+        commit_release_pair(temporary, output, sidecar_temp, sidecar)
     finally:
         temporary.unlink(missing_ok=True)
-    digest = hashlib.sha256(output.read_bytes()).hexdigest()
-    sidecar_bytes = f"{digest}  {output.name}\n".encode("utf-8")
-    with tempfile.NamedTemporaryFile(dir=sidecar.parent, delete=False) as handle:
-        handle.write(sidecar_bytes)
-        handle.flush()
-        os.fsync(handle.fileno())
-        sidecar_temp = Path(handle.name)
-    try:
-        os.replace(sidecar_temp, sidecar)
-    finally:
-        sidecar_temp.unlink(missing_ok=True)
+        if sidecar_temp is not None:
+            sidecar_temp.unlink(missing_ok=True)
     return {
         "archive": str(output),
         "file_count": len(files) + 1,

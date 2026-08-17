@@ -28,12 +28,18 @@ SCHEMA_NAME = "teamwork-payload"
 SCHEMA_VERSION = "1.0.0"
 SKILL_VERSION = "1.0.0"
 MIN_PYTHON = (3, 11)
+MIN_GIT = (2, 22)
 DEFAULT_PAYLOAD_DIR = ".teamwork"
 MAX_SOURCE_BYTES = 1_048_576
 MAX_SOURCES = 200
 MAX_WORKTREE_LINES = 500
 MAX_WALK_DIRS = 2_000
 MAX_SOURCE_DEPTH = 8
+MAX_DIRECTORY_ENTRIES = 4_096
+MAX_WALK_ENTRIES = 20_000
+MAX_SEARCH_DIRS = 2_000
+MAX_SEARCH_DEPTH = 6
+MAX_SEARCH_ENTRIES = 20_000
 MAX_PAYLOAD_FILE_BYTES = 2_097_152
 MAX_PAYLOAD_TOTAL_BYTES = 10_485_760
 MAX_GIT_OUTPUT_CHARS = 2_097_152
@@ -49,6 +55,9 @@ SEMVER_RE = re.compile(
     r"(?:-(?:(?:0|[1-9][0-9]*)|(?:[0-9]*[A-Za-z-][0-9A-Za-z-]*))"
     r"(?:\.(?:(?:0|[1-9][0-9]*)|(?:[0-9]*[A-Za-z-][0-9A-Za-z-]*)))*)?"
     r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+)
+UUID_RE = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 )
 
 DOCUMENTS = (
@@ -479,14 +488,17 @@ def run_git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         if failure is not None:
             process.kill()
             process.wait()
-            process.stdout.close()
-            process.stderr.close()
             for reader in readers:
                 reader.join(timeout=1)
+            process.stdout.close()
+            process.stderr.close()
             raise TeamworkError(failure)
         for reader in readers:
             reader.join(timeout=1)
-        if exceeded.is_set() or any(reader.is_alive() for reader in readers):
+        readers_alive = any(reader.is_alive() for reader in readers)
+        process.stdout.close()
+        process.stderr.close()
+        if exceeded.is_set() or readers_alive:
             raise TeamworkError(
                 f"Git command output exceeds {MAX_GIT_OUTPUT_CHARS} bytes: git {' '.join(args)}"
             )
@@ -501,6 +513,18 @@ def run_git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         ) from exc
 
 
+def ensure_git_version(root: Path) -> None:
+    result = run_git(root, "--version")
+    match = re.search(r"\bgit version (\d+)\.(\d+)(?:\.(\d+))?", result.stdout)
+    if result.returncode != 0 or not match:
+        raise TeamworkError("Cannot determine Git version; Teamwork requires Git 2.22+")
+    version = (int(match.group(1)), int(match.group(2)))
+    if version < MIN_GIT:
+        raise TeamworkError(
+            f"Git {version[0]}.{version[1]} is unsupported; Teamwork requires Git 2.22+"
+        )
+
+
 def find_repo_root(start: Path, allow_non_git: bool = False) -> tuple[Path, bool]:
     start = start.expanduser().resolve()
     if start.is_file():
@@ -510,6 +534,7 @@ def find_repo_root(start: Path, allow_non_git: bool = False) -> tuple[Path, bool
     if shutil.which("git"):
         result = run_git(start, "rev-parse", "--show-toplevel")
         if result.returncode == 0 and result.stdout.strip():
+            ensure_git_version(start)
             return Path(result.stdout.strip()).resolve(), True
     current = start
     while True:
@@ -655,6 +680,12 @@ def advisory_operation_lock(identity: str) -> Iterator[None]:
             os.close(descriptor)
 
 
+def canonical_lock_identity(kind: str, path: Path) -> str:
+    """Normalize aliases so one filesystem target always maps to one lock."""
+    canonical = path.expanduser().absolute().resolve(strict=False)
+    return f"{kind}:{os.path.normcase(str(canonical))}"
+
+
 @contextlib.contextmanager
 def _payload_marker_lock(payload: Path) -> Iterator[None]:
     created_payload = not payload.exists()
@@ -723,9 +754,7 @@ def _payload_marker_lock(payload: Path) -> Iterator[None]:
 
 @contextlib.contextmanager
 def payload_lock(payload: Path) -> Iterator[None]:
-    identity = (
-        f"repository:{os.path.normcase(str(payload.expanduser().absolute().parent))}"
-    )
+    identity = canonical_lock_identity("repository", payload.parent)
     with advisory_operation_lock(identity):
         with _payload_marker_lock(payload):
             yield
@@ -754,9 +783,7 @@ def _restore_git_exclude_locked(
 def restore_git_exclude(change: tuple[Path, bytes | None, bytes] | None) -> None:
     if change is None:
         return
-    with advisory_operation_lock(
-        f"git-exclude:{os.path.normcase(str(change[0].expanduser().absolute()))}"
-    ):
+    with advisory_operation_lock(canonical_lock_identity("git-exclude", change[0])):
         _restore_git_exclude_locked(change)
 
 
@@ -776,12 +803,37 @@ def tracked_payload_paths(root: Path, payload_name: str) -> str:
     return "\n".join(item for item in tracked.stdout.split("\0") if item)
 
 
+def verify_payload_files_ignored(root: Path, payload_name: str) -> None:
+    """Require every canonical payload file to be ignored, not only the manifest."""
+    relative_paths = [
+        f"{payload_name}/{name}" for name in (*HASHED_FILES, "checksums.json")
+    ]
+    ignored = run_git(
+        root,
+        "check-ignore",
+        "--no-index",
+        "--",
+        *relative_paths,
+    )
+    if ignored.returncode not in {0, 1}:
+        raise TeamworkError(
+            f"Cannot verify Git ignore state: {ignored.stderr.strip() or ignored.stdout.strip()}"
+        )
+    ignored_paths = {item.replace("\\", "/") for item in ignored.stdout.splitlines()}
+    missing = [path for path in relative_paths if path not in ignored_paths]
+    if missing:
+        raise TeamworkError(
+            "Git does not ignore every canonical payload file:\n" + "\n".join(missing)
+        )
+
+
 def ensure_git_excluded(
     root: Path, payload_name: str, is_git: bool
 ) -> tuple[list[str], tuple[Path, bytes | None, bytes] | None]:
     payload_name = validate_payload_name(payload_name)
     if not is_git:
         return ["Non-Git project: payload cannot be certified as untracked."], None
+    ensure_git_version(root)
     tracked = tracked_payload_paths(root, payload_name)
     if tracked:
         raise TeamworkError(
@@ -814,9 +866,7 @@ def ensure_git_excluded(
         raise TeamworkError(f"Git exclude path escaped common directory: {exclude}")
     if exclude.exists() and not exclude.is_file():
         raise TeamworkError(f"Git exclude path is not a regular file: {exclude}")
-    with advisory_operation_lock(
-        f"git-exclude:{os.path.normcase(str(exclude.expanduser().absolute()))}"
-    ):
+    with advisory_operation_lock(canonical_lock_identity("git-exclude", exclude)):
         original = (
             read_bytes_bounded(exclude, MAX_PAYLOAD_FILE_BYTES, "Git exclude")
             if exclude.exists()
@@ -863,13 +913,7 @@ def ensure_git_excluded(
             written = updated.replace("\r\n", "\n").encode("utf-8")
             change = (exclude, original, written)
         try:
-            check = run_git(
-                root, "check-ignore", "-q", "--", f"{payload_name}/manifest.json"
-            )
-            if check.returncode != 0:
-                raise TeamworkError(
-                    f"Git does not ignore {payload_name}; refusing to continue"
-                )
+            verify_payload_files_ignored(root, payload_name)
         except BaseException:
             _restore_git_exclude_locked(change)
             raise
@@ -889,6 +933,7 @@ def verify_git_excluded(root: Path, payload_name: str) -> list[str]:
         return [
             "Current payload parent is not a Git repository; untracked status not verified."
         ]
+    ensure_git_version(root)
     top_level = Path(probe.stdout.strip()).resolve()
     if top_level != root.resolve():
         raise TeamworkError(
@@ -899,13 +944,7 @@ def verify_git_excluded(root: Path, payload_name: str) -> list[str]:
         raise TeamworkError(
             f"Payload is tracked by Git (case-insensitive check):\n{tracked}"
         )
-    ignored = run_git(root, "check-ignore", "-q", "--", f"{payload_name}/manifest.json")
-    if ignored.returncode != 0:
-        detail = (
-            ignored.stderr.strip()
-            or f"Payload is not ignored by Git: {root / payload_name}"
-        )
-        raise TeamworkError(detail)
+    verify_payload_files_ignored(root, payload_name)
     return []
 
 
@@ -1043,19 +1082,30 @@ def normalize_relevance(value: str) -> str:
 
 
 def source_candidate(
-    path: Path, scope: str, base: Path, reason: str
+    path: Path,
+    scope: str,
+    base: Path,
+    reason: str,
+    incomplete: list[bool] | None = None,
 ) -> dict[str, Any] | None:
     try:
+        unsafe = is_unsafe_link(path)
+    except TeamworkError:
+        if incomplete is not None:
+            incomplete[0] = True
+        return None
+    if unsafe:
+        return None
+    try:
+        metadata = path.stat()
         if (
-            is_unsafe_link(path)
-            or not path.is_file()
+            not stat.S_ISREG(metadata.st_mode)
             or path.suffix.lower() not in SOURCE_SUFFIXES
         ):
             return None
         if any(SENSITIVE_NAME_RE.search(part) for part in path.parts):
             return None
-        stat = path.stat()
-        if stat.st_size > MAX_SOURCE_BYTES:
+        if metadata.st_size > MAX_SOURCE_BYTES:
             return None
         relative = path.resolve().relative_to(base.resolve()).as_posix()
         if scope == "repo":
@@ -1072,42 +1122,111 @@ def source_candidate(
             "path": f"{scope}:{relative}",
             "path_hint": path_hint,
             "reason": reason,
-            "size": stat.st_size,
-            "modified_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc)
+            "size": metadata.st_size,
+            "modified_at": datetime.fromtimestamp(metadata.st_mtime, timezone.utc)
             .replace(microsecond=0)
             .isoformat()
             .replace("+00:00", "Z"),
             "sha256": sha256_file(path),
         }
-    except (OSError, ValueError):
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError, TeamworkError):
+        if incomplete is not None:
+            incomplete[0] = True
         return None
 
 
-def walk_guidance(root: Path, named_only: bool = False) -> Iterator[Path]:
-    if not root.exists():
+def bounded_directory_entries(
+    directory: Path,
+    counters: list[int],
+    max_total_entries: int,
+    label: str,
+) -> list[tuple[str, bool]]:
+    """Return bounded, sorted safe entries as (name, is_directory)."""
+    entries: list[tuple[str, bool]] = []
+    local_entries = 0
+    try:
+        with os.scandir(directory) as iterator:
+            for entry in iterator:
+                local_entries += 1
+                counters[1] += 1
+                if (
+                    local_entries > MAX_DIRECTORY_ENTRIES
+                    or counters[1] > max_total_entries
+                ):
+                    raise TeamworkError(f"{label} exceeded its filesystem entry limit")
+                path = Path(entry.path)
+                if is_unsafe_link(path):
+                    continue
+                try:
+                    is_directory = entry.is_dir(follow_symlinks=False)
+                    is_file = entry.is_file(follow_symlinks=False)
+                except OSError as exc:
+                    raise TeamworkError(
+                        f"Cannot inspect {label.lower()} entry {path}: {exc}"
+                    ) from exc
+                if is_directory or is_file:
+                    entries.append((entry.name, is_directory))
+    except TeamworkError:
+        raise
+    except OSError as exc:
+        raise TeamworkError(
+            f"Cannot scan {label.lower()} directory {directory}: {exc}"
+        ) from exc
+    return sorted(entries, key=lambda item: item[0])
+
+
+def walk_guidance(
+    root: Path,
+    named_only: bool = False,
+    truncation: list[bool] | None = None,
+    counters: list[int] | None = None,
+) -> Iterator[Path]:
+    try:
+        unsafe = is_unsafe_link(root)
+        metadata = root.stat()
+    except FileNotFoundError:
         return
-    base_depth = len(root.resolve().parts)
-    visited = 0
-    for current, dirs, files in os.walk(root, followlinks=False):
-        visited += 1
-        current_path = Path(current)
-        depth = len(current_path.resolve().parts) - base_depth
-        dirs[:] = sorted(
-            directory
-            for directory in dirs
-            if directory not in SKIP_DIRS
-            and not is_unsafe_link(current_path / directory)
-            and depth < MAX_SOURCE_DEPTH
-        )
-        for filename in sorted(files):
-            path = current_path / filename
-            if named_only:
-                if filename in {"AGENTS.md", "CLAUDE.md", "GEMINI.md"}:
+    except (OSError, TeamworkError):
+        if truncation is not None:
+            truncation[0] = True
+        return
+    if unsafe or not stat.S_ISDIR(metadata.st_mode):
+        return
+    counters = counters if counters is not None else [0, 0]
+    pending: list[tuple[Path, int]] = [(root, 0)]
+    while pending:
+        if counters[0] >= MAX_WALK_DIRS:
+            if truncation is not None:
+                truncation[0] = True
+            return
+        current_path, depth = pending.pop()
+        counters[0] += 1
+        try:
+            entries = bounded_directory_entries(
+                current_path, counters, MAX_WALK_ENTRIES, "Source discovery"
+            )
+        except TeamworkError:
+            if truncation is not None:
+                truncation[0] = True
+            continue
+        directories: list[Path] = []
+        for name, is_directory in entries:
+            path = current_path / name
+            if is_directory:
+                if name not in SKIP_DIRS:
+                    directories.append(path)
+            elif named_only:
+                if name in {"AGENTS.md", "CLAUDE.md", "GEMINI.md"}:
                     yield path
             elif path.suffix.lower() in SOURCE_SUFFIXES:
                 yield path
-        if visited >= MAX_WALK_DIRS:
-            return
+        if directories and depth >= MAX_SOURCE_DEPTH:
+            if truncation is not None:
+                truncation[0] = True
+            continue
+        pending.extend((path, depth + 1) for path in reversed(directories))
 
 
 def discover_sources(
@@ -1116,27 +1235,50 @@ def discover_sources(
     candidates: list[dict[str, Any]] = []
     seen: set[Path] = set()
     truncated = False
+    walk_truncated = [False]
+    walk_counters = [0, 0]
     home = Path.home().resolve()
     roots_scanned = ["<repo-root>"]
 
-    def add(path: Path, scope: str, base: Path, reason: str) -> None:
+    def add(path: Path, scope: str, base: Path, reason: str) -> bool:
         nonlocal truncated
+        if len(candidates) >= MAX_SOURCES:
+            truncated = True
+            return False
         try:
             resolved = path.resolve()
         except OSError:
-            return
+            walk_truncated[0] = True
+            return True
         if resolved in seen:
-            return
-        if len(candidates) >= MAX_SOURCES:
-            if truncated:
-                return
-            if source_candidate(path, scope, base, reason):
-                truncated = True
-            return
-        item = source_candidate(path, scope, base, reason)
+            return True
+        item = source_candidate(path, scope, base, reason, walk_truncated)
         if item:
             seen.add(resolved)
             candidates.append(item)
+            if len(candidates) >= MAX_SOURCES:
+                truncated = True
+                return False
+        return True
+
+    def scan(
+        scan_root: Path,
+        scope: str,
+        base: Path,
+        reason: str,
+        *,
+        named_only: bool = False,
+    ) -> None:
+        if len(candidates) >= MAX_SOURCES:
+            return
+        for path in walk_guidance(
+            scan_root,
+            named_only=named_only,
+            truncation=walk_truncated,
+            counters=walk_counters,
+        ):
+            if not add(path, scope, base, reason):
+                break
 
     resolved_extra_roots: list[Path] = []
     for extra in extra_roots:
@@ -1148,8 +1290,7 @@ def discover_sources(
         resolved_extra_roots.append(resolved)
 
     # Highest priority: repository-local instructions and memory.
-    for path in walk_guidance(root, named_only=True):
-        add(path, "repo", root, "Repository agent instructions")
+    scan(root, "repo", root, "Repository agent instructions", named_only=True)
     add(
         root / ".github" / "copilot-instructions.md",
         "repo",
@@ -1166,14 +1307,12 @@ def discover_sources(
         root / ".continue",
     )
     for harness_root in repo_harness_roots:
-        for path in walk_guidance(harness_root):
-            add(path, "repo", root, "Repository harness guidance or memory")
+        scan(harness_root, "repo", root, "Repository harness guidance or memory")
 
     # Next priority: source roots explicitly selected by the producer.
     for index, extra in enumerate(resolved_extra_roots, start=1):
         roots_scanned.append(f"<source-root-{index}>")
-        for path in walk_guidance(extra):
-            add(path, f"extra-{index}", extra, "Explicit extra guidance root")
+        scan(extra, f"extra-{index}", extra, "Explicit extra guidance root")
 
     home_exact = (
         (home / ".codex" / "memories" / "memory_summary.md", "Codex memory summary"),
@@ -1213,20 +1352,31 @@ def discover_sources(
     # a direct project directory, never the generic word "project" in the parent path.
     project_key = normalize_relevance(root.resolve().as_posix())
     claude_projects = home / ".claude" / "projects"
-    if claude_projects.exists() and project_key:
+    claude_projects_available = False
+    try:
+        claude_metadata = claude_projects.stat()
+        claude_projects_available = stat.S_ISDIR(
+            claude_metadata.st_mode
+        ) and not is_unsafe_link(claude_projects)
+    except FileNotFoundError:
+        pass
+    except (OSError, TeamworkError):
+        walk_truncated[0] = True
+    if claude_projects_available and project_key and len(candidates) < MAX_SOURCES:
         try:
-            project_directories = sorted(
-                (
-                    path
-                    for path in claude_projects.iterdir()
-                    if path.is_dir() and not is_unsafe_link(path)
-                ),
-                key=lambda path: path.name.lower(),
-            )
-        except OSError as exc:
-            raise TeamworkError(
-                f"Cannot inspect Claude project memory root: {exc}"
-            ) from exc
+            project_directories = [
+                claude_projects / name
+                for name, is_directory in bounded_directory_entries(
+                    claude_projects,
+                    walk_counters,
+                    MAX_WALK_ENTRIES,
+                    "Source discovery",
+                )
+                if is_directory
+            ]
+        except TeamworkError:
+            walk_truncated[0] = True
+            project_directories = []
         matches = [
             path
             for path in project_directories
@@ -1241,15 +1391,13 @@ def discover_sources(
             ]
             matches = suffix_matches if len(suffix_matches) == 1 else []
         for project_directory in matches:
-            for path in walk_guidance(project_directory):
-                add(path, "home", home, "Claude project-specific memory")
+            scan(project_directory, "home", home, "Claude project-specific memory")
 
     # Lowest priority: bounded, known memory/rule directories.
     for known_root, reason in known_home_roots:
-        for path in walk_guidance(known_root):
-            add(path, "home", home, reason)
+        scan(known_root, "home", home, reason)
 
-    return candidates, truncated, roots_scanned
+    return candidates, truncated or walk_truncated[0], roots_scanned
 
 
 def validate_context_index(index: dict[str, Any]) -> None:
@@ -1450,7 +1598,12 @@ def render_sources(candidates: Sequence[dict[str, Any]], truncated: bool) -> str
             "| none | none | none | No candidate instruction or memory files discovered | n/a | n/a |"
         )
     if truncated:
-        lines.extend(["", f"> Candidate list truncated at {MAX_SOURCES} files."])
+        lines.extend(
+            [
+                "",
+                "> Discovery was incomplete because a source, directory, depth, count, or filesystem-access limit was reached.",
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -1549,7 +1702,11 @@ def validate_existing_manifest(manifest: dict[str, Any]) -> None:
     payload_id = manifest.get("payload_id")
     try:
         parsed_payload_id = uuid.UUID(str(payload_id))
-        if not isinstance(payload_id, str) or str(parsed_payload_id) != payload_id:
+        if (
+            not isinstance(payload_id, str)
+            or str(parsed_payload_id) != payload_id
+            or not UUID_RE.fullmatch(payload_id)
+        ):
             raise ValueError
     except (ValueError, TypeError, AttributeError):
         errors.append("payload_id must be a UUID")
@@ -1859,6 +2016,10 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
             atomic_write_text(payload / "WORKTREE.md", render_worktree(vcs_snapshot))
 
             candidates, truncated, roots_scanned = discover_sources(root, extra_roots)
+            if truncated:
+                warnings.append(
+                    "Source discovery reached a directory or candidate safety limit; review SOURCES.md"
+                )
             context_index = {
                 "candidates": candidates,
                 "content_copied": False,
@@ -1947,7 +2108,6 @@ def find_sensitive_values(payload: Path) -> list[str]:
 
 
 def locate_payload(args: argparse.Namespace) -> Path:
-    payload_name = validate_payload_name(args.payload_dir)
     if getattr(args, "payload", None):
         supplied = Path(os.path.abspath(str(Path(args.payload).expanduser())))
         candidate = (
@@ -1955,50 +2115,86 @@ def locate_payload(args: argparse.Namespace) -> Path:
             if supplied.is_file() and supplied.name == "manifest.json"
             else supplied
         )
-        validate_payload_name(candidate.name)
-        if candidate.name != payload_name:
+        candidate_name = validate_payload_name(candidate.name)
+        requested_name = validate_payload_name(args.payload_dir)
+        if requested_name != DEFAULT_PAYLOAD_DIR and candidate_name != requested_name:
             raise TeamworkError(
-                f"Explicit payload name {candidate.name!r} does not match --payload-dir {payload_name!r}"
+                f"Explicit payload name {candidate.name!r} does not match --payload-dir {requested_name!r}"
             )
         return candidate
+    payload_name = validate_payload_name(args.payload_dir)
     if getattr(args, "repo", None):
         root, _is_git = find_repo_root(Path(args.repo), allow_non_git=True)
-        return payload_for(root, args.payload_dir)
-    start = (
-        Path(getattr(args, "search_root", None) or Path.cwd()).expanduser().resolve()
-    )
-    current = start
-    while True:
-        candidate = current / args.payload_dir
-        if not is_unsafe_link(candidate) and (candidate / "manifest.json").is_file():
-            return candidate
-        if current.parent == current:
-            break
-        current = current.parent
-    if getattr(args, "search_root", None):
-        matches: list[Path] = []
-        base_depth = len(start.parts)
-        visited = 0
-        for current_name, dirs, _files in os.walk(start, followlinks=False):
-            visited += 1
-            current_path = Path(current_name)
-            depth = len(current_path.parts) - base_depth
-            dirs[:] = sorted(
-                item
-                for item in dirs
-                if item not in SKIP_DIRS - {payload_name}
-                and not is_unsafe_link(current_path / item)
-                and depth < 6
-            )
-            candidate = current_path / args.payload_dir
+        return payload_for(root, payload_name)
+    explicit_search_root = getattr(args, "search_root", None)
+    start = Path(explicit_search_root or Path.cwd()).expanduser().resolve()
+    if not explicit_search_root:
+        current = start
+        while True:
+            candidate = current / payload_name
             if (
                 not is_unsafe_link(candidate)
                 and (candidate / "manifest.json").is_file()
             ):
-                matches.append(candidate.resolve())
-                dirs[:] = []
-            if visited >= 2000:
+                return candidate
+            if current.parent == current:
                 break
+            current = current.parent
+    if explicit_search_root:
+        matches: list[Path] = []
+        search_counters = [0, 0]
+        pending: list[tuple[Path, int]] = [(start, 0)]
+        while pending:
+            if search_counters[0] >= MAX_SEARCH_DIRS:
+                raise TeamworkError(
+                    f"Payload search exceeded {MAX_SEARCH_DIRS} directories; pass --payload explicitly"
+                )
+            current_path, depth = pending.pop()
+            search_counters[0] += 1
+            candidate = current_path / payload_name
+            manifest_path = candidate / "manifest.json"
+            try:
+                candidate_unsafe = is_unsafe_link(candidate)
+                if candidate_unsafe:
+                    found = False
+                else:
+                    manifest_unsafe = is_unsafe_link(manifest_path)
+                    manifest_metadata = manifest_path.stat()
+                    found = not manifest_unsafe and stat.S_ISREG(
+                        manifest_metadata.st_mode
+                    )
+            except FileNotFoundError:
+                found = False
+            except (OSError, TeamworkError) as exc:
+                raise TeamworkError(
+                    "Payload search was incomplete due to a filesystem-access limit; "
+                    "pass --payload explicitly"
+                ) from exc
+            if found:
+                matches.append(candidate.resolve())
+                continue
+            try:
+                entries = bounded_directory_entries(
+                    current_path,
+                    search_counters,
+                    MAX_SEARCH_ENTRIES,
+                    "Payload search",
+                )
+            except TeamworkError as exc:
+                raise TeamworkError(
+                    "Payload search was incomplete due to a filesystem entry or access limit; "
+                    "pass --payload explicitly"
+                ) from exc
+            directories = [
+                current_path / name
+                for name, is_directory in entries
+                if is_directory and name not in SKIP_DIRS - {payload_name}
+            ]
+            if directories and depth >= MAX_SEARCH_DEPTH:
+                raise TeamworkError(
+                    "Payload search was incomplete due to a depth limit; pass --payload explicitly"
+                )
+            pending.extend((path, depth + 1) for path in reversed(directories))
         unique = sorted(set(matches))
         if len(unique) == 1:
             return unique[0]
@@ -2007,7 +2203,7 @@ def locate_payload(args: argparse.Namespace) -> Path:
             raise TeamworkError(
                 f"Multiple payloads found; pass --payload explicitly:\n{joined}"
             )
-    raise TeamworkError(f"No {args.payload_dir}/manifest.json found from {start}")
+    raise TeamworkError(f"No {payload_name}/manifest.json found from {start}")
 
 
 def verify_payload(

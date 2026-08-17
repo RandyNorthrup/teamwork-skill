@@ -50,9 +50,9 @@ Any later `prepare` returns payload to `draft`. Any manual change after `seal` c
 
 ## Source discovery
 
-Discovery is metadata-only. It records size, modification time, SHA-256, reason, scoped path, and a portable `<repo-root>`, `<home>`, or `<source-root-N>` path hint for files no larger than 1 MiB. It does not copy source contents or absolute source paths.
+Discovery is metadata-only. It records size, modification time, SHA-256, reason, scoped path, and a portable `<repo-root>`, `<home>`, or `<source-root-N>` path hint for files no larger than 1 MiB. It does not copy source contents or absolute source paths. Traversal uses bounded directory enumeration: at most 4,096 entries from one directory, 20,000 entries and 2,000 directories across discovery, depth 8, and 200 retained candidates. Reaching a candidate, directory, depth, entry, or filesystem-access limit marks discovery truncated and emits a warning; it never reports an incomplete walk as exhaustive. Explicit payload search independently caps 4,096 entries per directory, 20,000 entries, 2,000 directories, and depth 6, then fails closed if search is incomplete.
 
-Default candidates include repository `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, supported repository harness-guidance folders, global Codex memory registry/summary, common global agent instruction files, exact project-matching Claude memory, and bounded Cursor, Windsurf, Continue, Gemini, and agent memory/rule roots. Priority is repository-local, explicit source roots, exact globals, project-specific memory, then generic known memory roots, so the 200-file cap cannot discard repository instructions. Explicit `--source-root` directories scan supported text formats within the same depth/count/size limits. Discovery skips symlinks, dependency/build/VCS/tool-result directories, sensitive filenames including `creds.md`, unsupported extensions, and files beyond limits.
+Default candidates include repository `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, supported repository harness-guidance folders, global Codex memory registry/summary, common global agent instruction files, exact project-matching Claude memory, and bounded Cursor, Windsurf, Continue, Gemini, and agent memory/rule roots. Priority is repository-local, explicit source roots, exact globals, project-specific memory, then generic known memory roots, so lower-priority sources cannot displace already indexed repository candidates at the 200-file cap. If repository discovery itself reaches a count, directory, depth, or access limit, the payload reports discovery incomplete. Explicit `--source-root` directories scan supported text formats within the same depth/count/size limits. Discovery skips symlinks, dependency/build/VCS/tool-result directories, sensitive filenames including `creds.md`, unsupported extensions, and files beyond limits.
 
 Resume rescans current environment without changing payload. It reports unchanged, changed, missing, and new source IDs/paths. Current instructions still take priority over stored synthesis.
 
@@ -60,7 +60,7 @@ Agent must read only relevant sources and synthesize facts into `CONTEXT.md`. So
 
 ## Git and portability
 
-For Git repositories, `prepare` atomically merges one managed block into local `.git/info/exclude` and verifies the selected payload manifest is ignored. The block preserves every valid `.teamwork` or `.teamwork-<lowercase-slug>` entry already managed by the tool. Repository operations and the shared exclude file use OS advisory locks, so overlapping payload names cannot silently overwrite each other's ignore entries. It refuses tracked payload paths using a case-insensitive Git pathspec. Shared `.gitignore` is not modified. Payload directory name is restricted to `.teamwork` or `.teamwork-<lowercase-slug>`.
+For Git 2.22+ repositories, `prepare` atomically merges one managed block into local `.git/info/exclude` and verifies every canonical payload file is ignored. The block preserves every valid `.teamwork` or `.teamwork-<lowercase-slug>` entry already managed by the tool. Canonicalized repository and exclude identities use OS advisory locks, so path aliases and overlapping payload names cannot silently overwrite each other's ignore entries. It refuses tracked payload paths using a case-insensitive Git pathspec. Shared `.gitignore` is not modified. Payload directory name is restricted to `.teamwork` or `.teamwork-<lowercase-slug>`.
 
 On a relocated checkout, `resume` first verifies the canonical layout, schema, ready state, checksums, and sensitive-value rules without repository mutation. It then checks that the payload parent is the Git root, rejects a tracked payload, and adds its fixed local exclusion block before final Git verification. Project root is payload parent, not stored absolute hint. Paths in agent-authored documents should prefer `<repo-root>/relative/path` or repository-relative notation.
 
@@ -76,7 +76,7 @@ Remote URLs have URL user information removed before capture. Worktree entries w
 
 ## Compatibility and manual recovery
 
-Runtime requirement: Python 3.11+ using standard library only, plus Git for certified untracked behavior.
+Runtime requirement: Python 3.11+ using standard library only, plus Git 2.22+ for certified untracked behavior.
 
 Unknown schema name/version, manifest/schema mismatch, noncanonical or extra payload entries, noncanonical checksum/context-index fields, unsafe metadata paths, invalid timestamps, files over 2 MiB, payloads over 10 MiB, symlinks or Windows reparse points, active lock, case-variant tracked payload, likely secret, terminal control, incomplete placeholder, or checksum mismatch fails closed. Snapshot and Git-output reads are bounded before mutation. Do not silently migrate or repair. Preserve original, use compatible tool, or rebuild from live repository evidence.
 

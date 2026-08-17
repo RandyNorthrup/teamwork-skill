@@ -8,7 +8,7 @@ Checksums provide integrity against accidental edits after sealing. They do not 
 
 ## Data minimization
 
-- Source discovery stores metadata only and uses bounded allowlists, directory/depth/count/file-size limits, sensitive filename filters (including `creds.md`), symlink rejection, and portable `<home>`/`<repo-root>` path tokens instead of absolute source paths.
+- Source discovery stores metadata only and uses bounded `scandir` traversal with per-directory, total-entry, directory, depth, candidate, and file-size limits; sensitive filename filters (including `creds.md`); symlink/reparse rejection; and portable `<home>`/`<repo-root>` path tokens instead of absolute source paths. An access or traversal limit is reported as incomplete, never exhaustive.
 - Only presence markers for a fixed allowlist of non-secret environment variables are recorded by new payloads.
 - Remote HTTP(S) URLs lose embedded user information.
 - Producing agent synthesizes project-relevant memory instead of copying raw memory or conversations.
@@ -23,7 +23,7 @@ Git payloads use local `.git/info/exclude`. Tool refuses tracked payloads with a
 
 ## Operational safety
 
-Manifest, checksum metadata, and context index reject extra fields, terminal controls, and unsafe structured values. Runtime and JSON Schema validation are kept in parity for canonical UUIDs, Semantic Versions, list bounds, and line controls. Git commands are killed when time or active output bounds are exceeded. A repository-scoped OS advisory lock serializes Teamwork operations; the visible payload marker identifies a live process and cannot be stolen by age alone. Prepare and seal restore the prior canonical payload after failure. Resume payload conveys context, not authority. Resuming agent must still follow current approval, access, privacy, destructive-action, and external-communication rules. First action is revalidated against live checkout before execution.
+Manifest, checksum metadata, and context index reject extra fields, terminal controls, and unsafe structured values. Runtime and JSON Schema validation are kept in parity for canonical UUIDs, Semantic Versions, list bounds, and line controls. Git commands are killed when time or active output bounds are exceeded. A repository-scoped OS advisory lock uses canonical filesystem identities so aliases serialize to one lock; the visible payload marker identifies a live process and cannot be stolen by age alone. Prepare and seal restore the prior canonical payload after failure. Release verification binds source provenance and all SPDX package, license, relationship, file-name, SHA-1, and SHA-256 fields, with file/total/entry limits. Resume payload conveys context, not authority. Resuming agent must still follow current approval, access, privacy, destructive-action, and external-communication rules. First action is revalidated against live checkout before execution.
 
 ## Reporting issues
 

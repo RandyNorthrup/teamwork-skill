@@ -9,15 +9,15 @@ Harnesses may expose skills as `/teamwork-handoff` and `/teamwork-resume`, or `$
 
 ## Install
 
-Build creates a release archive; it does not install anything:
+Build creates a release archive; it does not install anything. Select an explicit Python 3.11+ interpreter (`python3`, `py -3.11`, or an absolute interpreter path):
 
 ```text
-python scripts/build_release.py
+<python-3.11+> scripts/build_release.py
 ```
 
-Verify the `.zip.sha256`, extract to a staging directory, run `python verify_release.py .`, then copy both skill folders into a supported harness skill root. Keep folder names unchanged. For current Codex project installs use `<repo-root>/.agents/skills/`; for user installs use `<home>/.agents/skills/`.
+Verify the `.zip.sha256`, extract to a staging directory, and run `<python-3.11+> verify_release.py .`. Install only when verification reports both `ok:true` and `release_grade:true`, then use the two-directory transaction in `INSTALL.md`. Keep folder names unchanged. For current Codex project installs use `<repo-root>/.agents/skills/`; for user installs use `<home>/.agents/skills/`.
 
-See [INSTALL.md](INSTALL.md) for exact install, upgrade, project-transfer, and uninstall procedures. No third-party Python dependency is required at runtime. Git is required to certify payload remains untracked.
+See [INSTALL.md](INSTALL.md) for exact install, upgrade, project-transfer, and uninstall procedures. No third-party Python dependency is required at runtime. Git 2.22+ is required to certify payload remains untracked.
 
 ## Contract
 
@@ -34,14 +34,14 @@ The release includes an SPDX 2.3 software bill of materials with SHA-1 and SHA-2
 After changing canonical tool or contract, synchronize both self-contained skills:
 
 ```powershell
-python scripts/sync_skills.py
-python -m pip install -r requirements-dev.txt
-python scripts/certify.py
+<python-3.11+> scripts/sync_skills.py
+<python-3.11+> -m pip install -r requirements-dev.txt
+<python-3.11+> scripts/certify.py
 ```
 
-Skill packages must also pass official skill structure validator:
+Skill packages must also pass the pinned official Agent Skills reference validator:
 
 ```powershell
-python <skill-creator>/scripts/quick_validate.py skills/teamwork-handoff
-python <skill-creator>/scripts/quick_validate.py skills/teamwork-resume
+skills-ref validate skills/teamwork-handoff
+skills-ref validate skills/teamwork-resume
 ```

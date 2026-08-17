@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import gc
 import hashlib
 import json
 import os
@@ -9,8 +11,10 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import warnings
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -19,10 +23,63 @@ ROOT = Path(__file__).resolve().parents[1]
 CANONICAL = ROOT / "src" / "teamwork_payload.py"
 PLACEHOLDER_RE = re.compile(r"\[Required:[^\]]+\]", re.IGNORECASE)
 sys.path.insert(0, str((ROOT / "src").resolve()))
+sys.path.insert(0, str((ROOT / "scripts").resolve()))
+import build_release  # noqa: E402
 import teamwork_payload as teamwork  # noqa: E402
 
 
 class ContractUtilityTests(unittest.TestCase):
+    def test_git_version_floor_and_alias_lock_identity(self) -> None:
+        with mock.patch.object(
+            teamwork,
+            "run_git",
+            return_value=subprocess.CompletedProcess(
+                ["git", "--version"], 0, "git version 2.21.9\n", ""
+            ),
+        ):
+            with self.assertRaises(teamwork.TeamworkError) as raised:
+                teamwork.ensure_git_version(ROOT)
+        self.assertIn("requires Git 2.22+", str(raised.exception))
+
+        alias = ROOT / "src" / ".."
+        self.assertEqual(
+            teamwork.canonical_lock_identity("repository", ROOT),
+            teamwork.canonical_lock_identity("repository", alias),
+        )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            non_git = Path(temporary)
+            with (
+                mock.patch.object(teamwork.shutil, "which", return_value="git"),
+                mock.patch.object(
+                    teamwork,
+                    "run_git",
+                    return_value=subprocess.CompletedProcess(
+                        ["git", "rev-parse"], 128, "", "not a repository"
+                    ),
+                ) as run_git,
+            ):
+                root, is_git = teamwork.find_repo_root(non_git, allow_non_git=True)
+            self.assertEqual(non_git.resolve(), root)
+            self.assertFalse(is_git)
+            self.assertEqual(
+                mock.call(non_git.resolve(), "rev-parse", "--show-toplevel"),
+                run_git.call_args,
+            )
+            with (
+                mock.patch.object(teamwork.shutil, "which", return_value="git"),
+                mock.patch.object(
+                    teamwork,
+                    "run_git",
+                    return_value=subprocess.CompletedProcess(
+                        ["git", "rev-parse"], 128, "", "not a repository"
+                    ),
+                ) as run_git,
+            ):
+                warnings_found = teamwork.verify_git_excluded(non_git, ".teamwork")
+            self.assertIn("not a Git repository", warnings_found[0])
+            self.assertEqual(1, run_git.call_count)
+
     def test_strict_metadata_timestamp_and_url_helpers(self) -> None:
         self.assertEqual(
             "2026-08-16T12:34:56Z",
@@ -133,8 +190,14 @@ class ContractUtilityTests(unittest.TestCase):
         previous = teamwork.MAX_GIT_OUTPUT_CHARS
         teamwork.MAX_GIT_OUTPUT_CHARS = 8
         try:
-            with self.assertRaises(teamwork.TeamworkError) as raised:
-                teamwork.run_git(ROOT, "--version")
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always", ResourceWarning)
+                with self.assertRaises(teamwork.TeamworkError) as raised:
+                    teamwork.run_git(ROOT, "--version")
+                gc.collect()
+            self.assertFalse(
+                [item for item in caught if item.category is ResourceWarning]
+            )
             self.assertIn("output exceeds", str(raised.exception))
         finally:
             teamwork.MAX_GIT_OUTPUT_CHARS = previous
@@ -146,6 +209,151 @@ class ContractUtilityTests(unittest.TestCase):
             with self.assertRaises(teamwork.TeamworkError) as raised:
                 teamwork.snapshot_payload(payload)
             self.assertIn("exceeds 2097152 bytes", str(raised.exception))
+
+    def test_guidance_walk_reports_directory_and_depth_truncation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "a" / "nested").mkdir(parents=True)
+            (root / "b").mkdir()
+            previous_dirs = teamwork.MAX_WALK_DIRS
+            previous_depth = teamwork.MAX_SOURCE_DEPTH
+            try:
+                teamwork.MAX_WALK_DIRS = 1
+                state = [False]
+                list(teamwork.walk_guidance(root, truncation=state))
+                self.assertTrue(state[0])
+
+                teamwork.MAX_WALK_DIRS = previous_dirs
+                teamwork.MAX_SOURCE_DEPTH = 0
+                state = [False]
+                list(teamwork.walk_guidance(root, truncation=state))
+                self.assertTrue(state[0])
+            finally:
+                teamwork.MAX_WALK_DIRS = previous_dirs
+                teamwork.MAX_SOURCE_DEPTH = previous_depth
+
+    def test_unreadable_source_candidate_marks_discovery_incomplete(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            guidance = root / "AGENTS.md"
+            guidance.write_text("fixture\n", encoding="utf-8")
+            incomplete = [False]
+            with mock.patch.object(
+                teamwork,
+                "sha256_file",
+                side_effect=teamwork.TeamworkError("fixture read denial"),
+            ):
+                self.assertIsNone(
+                    teamwork.source_candidate(
+                        guidance,
+                        "repo",
+                        root,
+                        "fixture",
+                        incomplete,
+                    )
+                )
+            self.assertTrue(incomplete[0])
+
+    def test_explicit_search_is_bounded_and_never_walks_ancestors(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / ".teamwork").mkdir()
+            (root / ".teamwork" / "manifest.json").write_text("{}\n", encoding="utf-8")
+            search = root / "child"
+            (search / "one").mkdir(parents=True)
+            args = argparse.Namespace(
+                payload=None,
+                payload_dir=".teamwork",
+                repo=None,
+                search_root=str(search),
+            )
+            with self.assertRaises(teamwork.TeamworkError) as raised:
+                teamwork.locate_payload(args)
+            self.assertIn("No .teamwork/manifest.json found", str(raised.exception))
+
+            previous = teamwork.MAX_SEARCH_DIRS
+            teamwork.MAX_SEARCH_DIRS = 1
+            try:
+                with self.assertRaises(teamwork.TeamworkError) as raised:
+                    teamwork.locate_payload(args)
+                self.assertIn("search exceeded", str(raised.exception))
+            finally:
+                teamwork.MAX_SEARCH_DIRS = previous
+
+    def test_single_directory_entry_limits_bound_discovery_and_search(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for index in range(3):
+                (root / f"guide-{index}.md").write_text("fixture\n", encoding="utf-8")
+            previous = teamwork.MAX_DIRECTORY_ENTRIES
+            teamwork.MAX_DIRECTORY_ENTRIES = 2
+            try:
+                incomplete = [False]
+                self.assertEqual(
+                    [], list(teamwork.walk_guidance(root, truncation=incomplete))
+                )
+                self.assertTrue(incomplete[0])
+
+                args = argparse.Namespace(
+                    payload=None,
+                    payload_dir=".teamwork",
+                    repo=None,
+                    search_root=str(root),
+                )
+                with self.assertRaises(teamwork.TeamworkError) as raised:
+                    teamwork.locate_payload(args)
+                self.assertIn("filesystem entry or access limit", str(raised.exception))
+            finally:
+                teamwork.MAX_DIRECTORY_ENTRIES = previous
+
+    def test_candidate_cap_stops_lower_priority_discovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "repo"
+            extra = Path(temporary) / "extra"
+            root.mkdir()
+            extra.mkdir()
+            for index in range(5):
+                (extra / f"guide-{index}.md").write_text("fixture\n", encoding="utf-8")
+            previous = teamwork.MAX_SOURCES
+            teamwork.MAX_SOURCES = 2
+            try:
+                candidates, truncated, _roots = teamwork.discover_sources(root, [extra])
+            finally:
+                teamwork.MAX_SOURCES = previous
+            self.assertEqual(2, len(candidates))
+            self.assertTrue(truncated)
+            self.assertTrue(all(item["scope"] == "extra-1" for item in candidates))
+
+    def test_release_pair_failure_restores_previous_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "release.zip"
+            sidecar = root / "release.zip.sha256"
+            output.write_bytes(b"old archive")
+            sidecar.write_bytes(b"old checksum")
+            archive_temp = root / "new.zip"
+            sidecar_temp = root / "new.sha256"
+            archive_temp.write_bytes(b"new archive")
+            sidecar_temp.write_bytes(b"new checksum")
+            real_replace = build_release.os.replace
+            failed_once = False
+
+            def fail_sidecar_once(source: object, destination: object) -> None:
+                nonlocal failed_once
+                if Path(destination) == sidecar and not failed_once:
+                    failed_once = True
+                    raise OSError("fixture sidecar failure")
+                real_replace(source, destination)
+
+            with mock.patch.object(
+                build_release.os, "replace", side_effect=fail_sidecar_once
+            ):
+                with self.assertRaises(RuntimeError):
+                    build_release.commit_release_pair(
+                        archive_temp, output, sidecar_temp, sidecar
+                    )
+            self.assertEqual(b"old archive", output.read_bytes())
+            self.assertEqual(b"old checksum", sidecar.read_bytes())
 
 
 class TeamworkPayloadE2E(unittest.TestCase):
@@ -313,6 +521,30 @@ class TeamworkPayloadE2E(unittest.TestCase):
             )
             self.assertEqual(0, ignored.returncode)
 
+    def test_explicit_custom_payload_infers_name_without_redundant_option(self) -> None:
+        name = ".teamwork-custom"
+        self.cli("prepare", "--repo", str(self.repo), "--payload-dir", name)
+        custom = self.repo / name
+        self.complete_documents(custom)
+        self.cli("seal", "--payload", str(custom))
+        verified = self.cli("verify", "--payload", str(custom), "--json")
+        self.assertEqual("ready", json.loads(verified.stdout)["state"])
+
+    def test_selectively_unignored_canonical_file_fails_verification(self) -> None:
+        self.prepare()
+        self.complete_documents()
+        self.seal()
+        exclude_result = self.git(self.repo, "rev-parse", "--git-path", "info/exclude")
+        exclude = Path(exclude_result.stdout.strip())
+        if not exclude.is_absolute():
+            exclude = self.repo / exclude
+        exclude.write_text(
+            "/.teamwork/*\n!/.teamwork/STATUS.md\n",
+            encoding="utf-8",
+        )
+        failed = self.cli("verify", "--repo", str(self.repo), expected=2)
+        self.assertIn(".teamwork/STATUS.md", failed.stderr)
+
     def test_seal_rejects_incomplete_payload(self) -> None:
         self.prepare()
         result = self.cli("seal", "--repo", str(self.repo), "--json", expected=2)
@@ -429,6 +661,12 @@ class TeamworkPayloadE2E(unittest.TestCase):
             teamwork.validate_existing_manifest(braced_uuid)
         self.assertTrue(list(validator.iter_errors(braced_uuid)))
 
+        future_uuid = json.loads(json.dumps(manifest))
+        future_uuid["payload_id"] = "12345678-1234-7234-9234-123456789abc"
+        with self.assertRaises(teamwork.TeamworkError):
+            teamwork.validate_existing_manifest(future_uuid)
+        self.assertTrue(list(validator.iter_errors(future_uuid)))
+
         escaped_remote = json.loads(json.dumps(manifest))
         escaped_remote["project"]["vcs"]["remotes"] = ["origin\x1b[31m"]
         with self.assertRaises(teamwork.TeamworkError):
@@ -528,7 +766,9 @@ class TeamworkPayloadE2E(unittest.TestCase):
         unprotected = self.cli(
             "verify", "--payload", str(destination / ".teamwork"), expected=2
         )
-        self.assertIn("Payload is not ignored by Git", unprotected.stderr)
+        self.assertIn(
+            "does not ignore every canonical payload file", unprotected.stderr
+        )
         exclude_result = self.git(
             destination, "rev-parse", "--git-path", "info/exclude"
         )
@@ -822,7 +1062,7 @@ class TeamworkPayloadE2E(unittest.TestCase):
             exclude = self.repo / exclude
         exclude.write_text("", encoding="utf-8")
         failed = self.cli("seal", "--repo", str(self.repo), expected=2)
-        self.assertIn("not ignored", failed.stderr)
+        self.assertIn("does not ignore every canonical payload file", failed.stderr)
         self.assertEqual(before_manifest, (self.payload / "manifest.json").read_bytes())
         self.assertEqual(
             before_checksums, (self.payload / "checksums.json").read_bytes()
@@ -947,6 +1187,30 @@ class TeamworkPayloadE2E(unittest.TestCase):
         self.git(self.repo, "add", "-f", ".TeamWork/STATUS.md")
         result = self.cli("prepare", "--repo", str(self.repo), expected=2)
         self.assertIn("case-insensitive check", result.stderr)
+
+    @unittest.skipUnless(os.name == "nt", "Windows junction-specific test")
+    def test_windows_junction_alias_shares_operation_lock(self) -> None:
+        target = self.base / "lock-target"
+        target.mkdir()
+        alias = self.base / "lock-alias"
+        created = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(alias), str(target)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if created.returncode != 0:
+            self.skipTest(f"junction unavailable: {created.stderr or created.stdout}")
+        try:
+            target_identity = teamwork.canonical_lock_identity("repository", target)
+            alias_identity = teamwork.canonical_lock_identity("repository", alias)
+            self.assertEqual(target_identity, alias_identity)
+            with teamwork.advisory_operation_lock(target_identity):
+                with self.assertRaises(teamwork.TeamworkError):
+                    with teamwork.advisory_operation_lock(alias_identity):
+                        self.fail("alias acquired a second operation lock")
+        finally:
+            os.rmdir(alias)
 
     @unittest.skipUnless(os.name == "nt", "Windows junction-specific test")
     def test_windows_junction_payload_and_git_info_fail_closed(self) -> None:
@@ -1166,7 +1430,10 @@ class PackagingTests(unittest.TestCase):
                 verified_release.returncode,
                 verified_release.stdout + verified_release.stderr,
             )
-            self.assertTrue(json.loads(verified_release.stdout)["ok"])
+            verification = json.loads(verified_release.stdout)
+            self.assertTrue(verification["ok"])
+            self.assertIn("release_grade", verification)
+            self.assertIn("object_format", verification["source"])
             official_sbom = subprocess.run(
                 [
                     sys.executable,
@@ -1473,6 +1740,114 @@ class PackagingTests(unittest.TestCase):
                     check=False,
                 )
                 self.assertEqual(2, verified.returncode, key)
+
+    def test_release_verifier_binds_provenance_and_every_sbom_field(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive_path = root / "release.zip"
+            built = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "build_release.py"),
+                    "--output",
+                    str(archive_path),
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(0, built.returncode, built.stdout + built.stderr)
+            extracted = root / "extracted"
+            with zipfile.ZipFile(archive_path) as archive:
+                archive.extractall(extracted)
+            manifest_path = extracted / "release-manifest.json"
+            sbom_path = extracted / "SBOM.spdx.json"
+            original_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            original_sbom = json.loads(sbom_path.read_text(encoding="utf-8"))
+
+            def run_verifier(label: str) -> None:
+                verified = subprocess.run(
+                    [
+                        sys.executable,
+                        str(extracted / "verify_release.py"),
+                        str(extracted),
+                    ],
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    2,
+                    verified.returncode,
+                    f"{label}: {verified.stdout}{verified.stderr}",
+                )
+
+            provenance_mutations = (
+                ("impossible timestamp", "created_at", "2026-02-31T00:00:00Z"),
+                ("hash format mismatch", "object_format", "sha256"),
+            )
+            for label, key, value in provenance_mutations:
+                manifest = json.loads(json.dumps(original_manifest))
+                manifest["source"][key] = value
+                manifest_path.write_text(
+                    json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                sbom_path.write_text(
+                    json.dumps(original_sbom, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                run_verifier(label)
+
+            def mutate_namespace(sbom: dict) -> None:
+                sbom["documentNamespace"] = "urn:teamwork:spdx:tampered"
+
+            def mutate_creation(sbom: dict) -> None:
+                sbom["creationInfo"]["created"] = "1980-01-01T00:00:00Z"
+
+            def mutate_package(sbom: dict) -> None:
+                sbom["packages"][0]["versionInfo"] = "9.9.9"
+
+            def mutate_license(sbom: dict) -> None:
+                sbom["packages"][0]["licenseDeclared"] = "NOASSERTION"
+
+            def mutate_relationship(sbom: dict) -> None:
+                sbom["relationships"] = list(reversed(sbom["relationships"]))
+
+            def mutate_sha1(sbom: dict) -> None:
+                sbom["files"][0]["checksums"][0]["checksumValue"] = "0" * 40
+
+            def mutate_file_name(sbom: dict) -> None:
+                sbom["files"][0]["fileName"] = "./../outside"
+
+            sbom_mutations = (
+                ("namespace", mutate_namespace),
+                ("creation", mutate_creation),
+                ("package", mutate_package),
+                ("license", mutate_license),
+                ("relationship", mutate_relationship),
+                ("sha1", mutate_sha1),
+                ("file name", mutate_file_name),
+            )
+            for label, mutate in sbom_mutations:
+                manifest = json.loads(json.dumps(original_manifest))
+                sbom = json.loads(json.dumps(original_sbom))
+                mutate(sbom)
+                sbom_bytes = (json.dumps(sbom, indent=2, sort_keys=True) + "\n").encode(
+                    "utf-8"
+                )
+                sbom_path.write_bytes(sbom_bytes)
+                manifest["files"]["SBOM.spdx.json"] = hashlib.sha256(
+                    sbom_bytes
+                ).hexdigest()
+                manifest_path.write_text(
+                    json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                run_verifier(label)
 
     def test_cli_version_matches_release_version(self) -> None:
         result = subprocess.run(

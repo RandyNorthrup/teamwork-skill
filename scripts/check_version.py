@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import runpy
 import sys
 from pathlib import Path
 
@@ -51,6 +52,22 @@ def main() -> int:
     )
     if skill_schema.get("type") != "string" or "pattern" not in skill_schema:
         failures.append("schema.producer.skill_version")
+    else:
+        runtime_pattern = runpy.run_path(str(ROOT / "src" / "teamwork_payload.py"))[
+            "SEMVER_RE"
+        ].pattern
+        build_pattern = runpy.run_path(str(ROOT / "scripts" / "build_release.py"))[
+            "SEMVER_PATTERN"
+        ]
+        verifier_pattern = runpy.run_path(str(ROOT / "scripts" / "verify_release.py"))[
+            "SEMVER_PATTERN"
+        ]
+        if len({runtime_pattern, build_pattern, verifier_pattern}) != 1:
+            failures.append("SemVer implementation patterns")
+        if skill_schema.get("pattern") != f"^{runtime_pattern}$":
+            failures.append("schema.producer.skill_version.pattern")
+        if not re.fullmatch(runtime_pattern, contract_version or ""):
+            failures.append("SCHEMA_VERSION SemVer")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     if f"## {version} " not in changelog:
         failures.append("CHANGELOG.md")

@@ -50,7 +50,7 @@ jobs:
       - run: skills-ref validate skills/teamwork-handoff
       - run: skills-ref validate skills/teamwork-resume
 
-  release:
+  package:
     needs: [test, open-format]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -59,10 +59,13 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
+      - name: Validate tag matches VERSION
+        if: github.ref_type == 'tag'
+        run: test "${GITHUB_REF_NAME}" = "v$(cat VERSION)"
       - run: python scripts/build_release.py --require-clean --json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: teamwork-skills-release
+          name: teamwork-skills-package-${{ github.sha }}
           path: |
             dist/*.zip
             dist/*.sha256

@@ -1,8 +1,6 @@
 ---
 name: teamwork-resume
 description: Locate, verify, understand, and continue work from a canonical agent-agnostic Teamwork handoff payload. Use when taking over another agent's project, switching harnesses or machines, entering an unfamiliar repository with .teamwork files, or invoking /teamwork-resume or $teamwork-resume. Reject draft, tampered, sensitive, tracked, or incompatible payloads; recover the live repository root and resume the first safe pending action.
-metadata:
-  compatibility: Requires Python 3.11+, filesystem and shell access, and Git for the certified untracked-payload guarantee.
 ---
 
 # Teamwork resume

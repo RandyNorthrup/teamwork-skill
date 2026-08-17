@@ -1,8 +1,6 @@
 ---
 name: teamwork-handoff
 description: Build or refresh a secure, untracked, agent-agnostic project handoff payload in the repository root. Use when pausing work, changing agents or harnesses, transferring a project, preserving current implementation status, or invoking /teamwork-handoff or $teamwork-handoff. Capture live repository evidence, applicable project instructions, relevant agent memory provenance, decisions, blockers, validation, and one concrete resume action without copying secrets.
-metadata:
-  compatibility: Requires Python 3.11+, filesystem and shell access, and Git for the certified untracked-payload guarantee.
 ---
 
 # Teamwork handoff
@@ -46,7 +44,7 @@ Create or update the canonical `.teamwork/` payload. Keep filenames stable. Trea
 - Do not overclaim tests or certification. Record unverified platforms and external systems explicitly.
 - Do not edit `manifest.json`, `checksums.json`, `context-index.json`, `teamwork-manifest.schema.json`, `WORKTREE.md`, or `SOURCES.md` manually.
 - Use `--source-root <path>` only for an explicit additional instruction or memory directory within user-authorized scope.
-- Require Python 3.11+ and Git for certified untracked behavior.
+- Require Python 3.11+ and Git 2.22+ for certified untracked behavior.
 - Use `--allow-non-git` only when project is intentionally not a Git repository; state that untracked status cannot be certified.
 - Treat any command failure as non-destructive: the tool restores the prior canonical payload. Do not delete a lock with a live or unknown owner.
 
