@@ -1143,7 +1143,7 @@ class TeamworkPayloadE2E(unittest.TestCase):
         (self.repo / "AGENTS.md").write_text("changed\n", encoding="utf-8")
         result = self.cli("resume", "--repo", str(self.repo))
         self.assertIn("Reading order:", result.stdout)
-        self.assertIn(str(self.payload / "STATUS.md"), result.stdout)
+        self.assertIn(str((self.payload / "STATUS.md").resolve()), result.stdout)
         self.assertIn("- changed:", result.stdout)
 
     def test_unexpected_payload_file_and_symlink_path_fail_closed(self) -> None:
