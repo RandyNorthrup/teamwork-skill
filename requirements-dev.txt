@@ -1,4 +1,5 @@
 jsonschema==4.26.0
+types-jsonschema==4.26.0.20260518
 coverage==7.15.2
 mypy==1.20.0
 ruff==0.15.9

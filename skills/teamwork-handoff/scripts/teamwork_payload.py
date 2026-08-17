@@ -599,10 +599,15 @@ def process_is_running(pid: int) -> bool:
         try:
             import ctypes
 
-            process = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+            # ``windll`` and ``get_last_error`` exist only on Windows, so the
+            # cross-platform ctypes stubs intentionally omit them. Resolve the
+            # platform API dynamically after the runtime guard.
+            windll = getattr(ctypes, "windll")
+            get_last_error = getattr(ctypes, "get_last_error")
+            process = windll.kernel32.OpenProcess(0x1000, False, pid)
             if not process:
-                return ctypes.get_last_error() == 5
-            ctypes.windll.kernel32.CloseHandle(process)
+                return get_last_error() == 5
+            windll.kernel32.CloseHandle(process)
             return True
         except (AttributeError, OSError):
             return True
