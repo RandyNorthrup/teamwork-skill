@@ -1,0 +1,38 @@
+{
+  "acceptance": {
+    "baseline_commit": "60234f10683984bd70aa7f6ee6934f2fa96fd4b3",
+    "changed_paths": [
+      "README.md",
+      "src/project_identity.py"
+    ],
+    "errors": 0,
+    "failures": 0,
+    "result": "passed",
+    "test_blob_after": "fec1f765edeab5e8011f6a53adaa4a6f19add788",
+    "test_blob_before": "fec1f765edeab5e8011f6a53adaa4a6f19add788",
+    "tests_run": 5
+  },
+  "artifact_sha256": "d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34",
+  "claim_boundary": "One zero-history Codex agent; independent behavior in other model harnesses is not claimed.",
+  "generated_at": "2026-08-17T07:39:24Z",
+  "isolation": {
+    "forked_turns": 0,
+    "hidden_expected_answer": false,
+    "mid-run_coaching": false,
+    "prompt_included_task_details": false
+  },
+  "payload": {
+    "consumer_agent": "independent-root-auditor",
+    "consumer_harness": "codex-root-audit",
+    "input_revision": 1,
+    "output_revision": 2,
+    "payload_id": "80fb9a02-622a-46fe-bc85-47108ca3013e",
+    "producer_agent": "fresh-forward-agent",
+    "producer_harness": "codex-isolated-forward",
+    "state": "ready",
+    "warnings": []
+  },
+  "result": "passed",
+  "schema_version": "1.0.0",
+  "source_commit": "d74b55d74956ce304ee495747729d502d15936d7"
+}

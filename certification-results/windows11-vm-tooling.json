@@ -1,0 +1,9 @@
+﻿{
+    "schema_version":  1,
+    "result":  "passed",
+    "mingit_release_tag":  "v2.55.0.windows.4",
+    "mingit_version":  "git version 2.55.0.windows.4",
+    "mingit_source_url":  "https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.4/MinGit-2.55.0.4-64-bit.zip",
+    "mingit_archive_sha256":  "4e03f94c2ffbf70be337e005cee02661c732dbfc81031a078bda9299b9a7d644",
+    "python_version":  "3.14.6"
+}

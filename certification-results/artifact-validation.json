@@ -1,0 +1,42 @@
+{
+  "artifact": {
+    "archive": "teamwork-skills-1.0.0.zip",
+    "archive_file_count": 15,
+    "release_grade": true,
+    "sha256": "d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34",
+    "source_commit": "d74b55d74956ce304ee495747729d502d15936d7",
+    "version": "1.0.0"
+  },
+  "generated_at": "2026-08-17T07:39:24Z",
+  "result": "passed",
+  "schema_version": "1.0.0",
+  "validators": [
+    {
+      "name": "release-verifier",
+      "result": "passed",
+      "validated_file_count_excluding_manifest": 14
+    },
+    {
+      "name": "codex-skill-creator-quick-validate",
+      "packages": [
+        "teamwork-handoff",
+        "teamwork-resume"
+      ],
+      "result": "passed"
+    },
+    {
+      "name": "official-agent-skills-reference",
+      "packages": [
+        "teamwork-handoff",
+        "teamwork-resume"
+      ],
+      "reference_commit": "69ef37e9424c0a7ea9dd2293b559e43ec8176379",
+      "result": "passed"
+    },
+    {
+      "name": "official-spdx-python-tools",
+      "result": "passed",
+      "spdx_version": "SPDX-2.3"
+    }
+  ]
+}

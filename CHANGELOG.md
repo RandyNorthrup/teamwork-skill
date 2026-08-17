@@ -2,7 +2,7 @@
 
 All notable changes use Semantic Versioning and are recorded here.
 
-## 1.0.0 - 2026-08-16
+## 1.0.0 - 2026-08-17
 
 - Initial production release of `teamwork-handoff` and `teamwork-resume`.
 - Added canonical, untracked payload lifecycle; bounded agent-memory discovery; schema and checksum verification; relocation; source provenance; and transactional prepare/seal rollback.
@@ -13,3 +13,4 @@ All notable changes use Semantic Versioning and are recorded here.
 - Added pinned multi-OS Python 3.11-3.14 CI, cross-platform certification tooling, and independent forward-test protocol.
 - Added pinned JSON Schema typing stubs and portable Windows process-probe typing so the same strict mypy gate runs on Windows, Linux, and macOS.
 - Accepted only the fixed macOS `/var` and `/tmp` compatibility aliases for release output while retaining fail-closed rejection of arbitrary linked output parents.
+- Certified exact release bytes across Windows, Kubuntu, macOS, Python 3.11-3.14, official format/SBOM validation, Gemini discovery, cross-machine transfer, and a zero-history Codex forward test.

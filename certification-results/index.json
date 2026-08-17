@@ -1,0 +1,22 @@
+{
+  "artifact_sha256": "d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34",
+  "generated_at": "2026-08-17T07:50:59Z",
+  "reports": {
+    "artifact-validation.json": "2ef98094d87f70b26af070436e4c1b7a5dd559eed7cfcda1ce0f5e6b49ace9d8",
+    "cross-machine-kubuntu-to-macos.json": "5e96cb41ae437a1df47d34ca8b54a0d50784728e424e64b2956e5f4ca9d1887a",
+    "gemini-cli-0.55.1-discovery.json": "6181b1244f70cf20eadbe90c60acfb04f81b4e38092d32435de4e15703535b88",
+    "independent-forward-test.json": "9b8d050528221b01ce09597d4706c7af7fcca7ac778912a57b2158f3c3ba2230",
+    "kubuntu-vm-py3.14.4.json": "8ded5ce4a28b057e35c497a5540a2bf353a2a0e0a509d7725f8208ecdcfc1aef",
+    "macos-vm-py3.14.7.json": "5df7b65d11000d031e5623b09ed39e6522d73f7a872fab0ba9fa1267d9b0c529",
+    "python-runtime-sources.json": "acc7fd4123e9871d1e4904e4738a4649682c40d3aacffc848916616919580f4e",
+    "windows-host-py3.11.9.json": "87ac2e7143ad9c4d9cf5fe5c2d0f7b31e75d07f8c845e301c3a113be4664dd4e",
+    "windows-host-py3.12.10.json": "cb3eb487fc26679d9a7a5c55c1789bf53fa8eea7772fa4dc402eccb35a76398f",
+    "windows-host-py3.13.json": "8cd000eae4b0737acae99ea605123dade37adb84f6349372cfdd4acf6edc4e0d",
+    "windows-host-py3.14.0.json": "dc9a44b6fc5236b69246c5a4389701ebdb91aa74849dee74da8cde21bd112429",
+    "windows11-vm-py3.14.6.json": "2c51717ee1dcaf907001587522c2921bfdd4a8059ff5b3ff113cda95ee189e64",
+    "windows11-vm-tooling.json": "b97953dd78e90c74045cd3bfd1f6900a34007dca943186cc10bcf3290a62ebef"
+  },
+  "result": "passed",
+  "schema_version": "1.0.0",
+  "source_commit": "d74b55d74956ce304ee495747729d502d15936d7"
+}

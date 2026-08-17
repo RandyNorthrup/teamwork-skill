@@ -1,0 +1,91 @@
+{
+  "artifact": {
+    "sha256": "d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34",
+    "source_commit": "d74b55d74956ce304ee495747729d502d15936d7",
+    "version": "1.0.0"
+  },
+  "consumer_runtime": {
+    "git": "2.50.1 (Apple Git-155)",
+    "os": "Darwin",
+    "os_release": "25.6.0",
+    "python": "3.14.7"
+  },
+  "generated_at": "2026-08-17T07:47:28Z",
+  "git": {
+    "clean_after_reseal": true,
+    "clean_before_action": true,
+    "first_action_committed": true,
+    "payload_ignored": true,
+    "payload_untracked": true
+  },
+  "payload": {
+    "consumer_revision": 2,
+    "final_state": "ready",
+    "id": "211956c1-f46c-4842-af36-155425a3c52d",
+    "initial_state": "ready",
+    "producer_revision": 1,
+    "revision_incremented": true
+  },
+  "producer_runtime": {
+    "git": "2.53.0",
+    "os": "Linux",
+    "os_release": "7.0.0-28-generic",
+    "python": "3.14.4"
+  },
+  "result": "passed",
+  "resume": {
+    "checksums_valid": true,
+    "consumer": {
+      "agent": "macos-consumer",
+      "harness": "cross-machine-e2e"
+    },
+    "first_action": "Create `COMPLETED.md` containing the exact line `cross-machine action completed` and commit it.",
+    "missing_nonrepository_sources": 1,
+    "producer": {
+      "agent": "linux-producer",
+      "harness": "cross-machine-e2e"
+    },
+    "reading_order_documents": 9,
+    "ready": true,
+    "repository_instruction_unchanged": true
+  },
+  "schema_version": "1.0.0",
+  "transfer": {
+    "different_absolute_path": true,
+    "different_machine": true,
+    "relocated": true,
+    "via_local_relay": true,
+    "whole_git_directory": true,
+    "whole_teamwork_directory": true
+  },
+  "validations": [
+    {
+      "name": "artifact-integrity-both-machines",
+      "result": "passed"
+    },
+    {
+      "name": "packaged-release-verification-both-machines",
+      "result": "passed"
+    },
+    {
+      "name": "producer-seal-and-checksums",
+      "result": "passed"
+    },
+    {
+      "name": "whole-fixture-relay-transfer",
+      "result": "passed"
+    },
+    {
+      "name": "consumer-relocation-and-resume",
+      "result": "passed"
+    },
+    {
+      "name": "safe-action-commit",
+      "result": "passed"
+    },
+    {
+      "name": "consumer-refresh-reseal-and-checksums",
+      "result": "passed"
+    }
+  ]
+}

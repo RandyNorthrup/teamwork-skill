@@ -1,0 +1,58 @@
+{
+  "ci": false,
+  "claim_level": "LocalE2ECertified",
+  "coverage": {
+    "branch_coverage": true,
+    "percent": 81.58667972575905,
+    "threshold": 80
+  },
+  "gates": [
+    "sync-check",
+    "version-governance",
+    "compile",
+    "ruff-lint",
+    "ruff-format",
+    "mypy",
+    "draft-2020-12-schema",
+    "packaging-parity",
+    "deterministic-release",
+    "extracted-release-integrity",
+    "official-spdx-validation",
+    "unit",
+    "local-e2e",
+    "branch-coverage-80-percent"
+  ],
+  "generated_at": "2026-08-17T07:32:38Z",
+  "operating_system": "Windows-11-10.0.22621-SP0",
+  "python": "3.13.7",
+  "python_implementation": "CPython",
+  "release": {
+    "file_count": 15,
+    "sha256": "d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34",
+    "source": {
+      "available": true,
+      "commit": "d74b55d74956ce304ee495747729d502d15936d7",
+      "created_at": "2026-08-17T07:24:18Z",
+      "dirty": false,
+      "object_format": "sha1"
+    },
+    "version": "1.0.0"
+  },
+  "result": "passed",
+  "report_redactions": [
+    "Absolute temporary paths in the expected symlink-privilege skip reason were replaced with <temp>."
+  ],
+  "source_commit": "d74b55d74956ce304ee495747729d502d15936d7",
+  "tests": {
+    "errors": [],
+    "failures": [],
+    "result": "passed",
+    "skipped": [
+      {
+        "reason": "directory symlink unavailable: [WinError 1314] A required privilege is not held by the client: '<temp>/project \u03a9 space/.teamwork' -> '<temp>/.teamwork-link'",
+        "test": "test_teamwork_payload.TeamworkPayloadE2E.test_unexpected_payload_file_and_symlink_path_fail_closed"
+      }
+    ],
+    "tests_run": 65
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "artifact_sha256": "d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34",
+  "claim_boundary": "Local workspace discovery only; independent Gemini model execution is not claimed.",
+  "command": "gemini skills list",
+  "discovered": [
+    {
+      "enabled": true,
+      "name": "teamwork-handoff",
+      "root": ".agents/skills/teamwork-handoff"
+    },
+    {
+      "enabled": true,
+      "name": "teamwork-resume",
+      "root": ".agents/skills/teamwork-resume"
+    }
+  ],
+  "generated_at": "2026-08-17T07:39:24Z",
+  "harness": "Gemini CLI",
+  "harness_version": "0.55.1",
+  "result": "passed",
+  "schema_version": "1.0.0",
+  "trust_mode": "GEMINI_CLI_TRUST_WORKSPACE=true for the disposable workspace"
+}

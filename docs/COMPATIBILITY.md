@@ -6,21 +6,30 @@ Both Teamwork folders implement the [open Agent Skills specification](https://ag
 
 Copy both directories without renaming them:
 
-| Harness | User installation root | Direct invocation | Status |
+| Harness | User installation root | Direct invocation | Exact v1.0.0 evidence |
 | --- | --- | --- | --- |
-| Codex | `<repo-root>/.agents/skills/` or `<home>/.agents/skills/` | `$teamwork-handoff`, `$teamwork-resume` | Current structure validated; fresh-agent rerun pending for final bytes |
-| Claude Code | `~/.claude/skills/` | `/teamwork-handoff`, `/teamwork-resume` | Official layout-compatible; independent model run pending |
-| Gemini CLI | `~/.gemini/skills/` or `~/.agents/skills/` | Ask Gemini to use named skill; activation requires consent | Prior workspace discovery passed; final-byte rerun pending |
-| Other Agent Skills client | Client's documented skills root | Client-defined | Open-standard structure validated |
+| Codex | `<repo-root>/.agents/skills/` or `<home>/.agents/skills/` | `$teamwork-handoff`, `$teamwork-resume` | Both packages pass Codex structural validation; one zero-history agent completed and resealed a real fixture |
+| Claude Code | `<home>/.claude/skills/` | `/teamwork-handoff`, `/teamwork-resume` | Layout-compatible; independent Claude model execution is not claimed |
+| Gemini CLI 0.55.1 | `<home>/.gemini/skills/` or `<home>/.agents/skills/` | Ask Gemini to use the named skill; activation requires consent | `gemini skills list` discovered both exact artifact packages as enabled in a trusted disposable workspace |
+| Other Agent Skills client | Client's documented skills root | Client-defined | Both packages pass the pinned official Agent Skills reference validator |
 
 Project-scoped roots are harness-specific. Claude Code uses `.claude/skills/`; Gemini CLI uses `.gemini/skills/` or `.agents/skills/`. Keep payload at project root as `.teamwork/` regardless of skill installation location.
 
 For reusable Codex distribution across teams, a plugin can package these two skills; the standalone ZIP remains the agent-agnostic distribution. See [installation procedures](../INSTALL.md).
 
+## Exact artifact evidence
+
+- Release source: `d74b55d74956ce304ee495747729d502d15936d7`
+- Release SHA-256: `d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34`
+- Official Agent Skills reference commit: `69ef37e9424c0a7ea9dd2293b559e43ec8176379`
+- Gemini discovery report: `certification-results/gemini-cli-0.55.1-discovery.json`
+- Fresh Codex evidence: `certification-results/independent-forward-test.json`
+
 ## Claim boundaries
 
 - Format compatibility means the official parser accepts both skill packages and the harness documents the same open layout.
 - Execution compatibility means the bundled Python CLI completes handoff/resume on that operating system.
-- Independent-agent compatibility requires a fresh agent to discover or invoke the installed skill and follow it without hidden expected-answer context.
+- Discovery compatibility means the harness lists the installed package; it does not prove a model will follow every instruction correctly.
+- Independent-agent compatibility requires a fresh agent to invoke the installed skill and follow it without hidden expected-answer context.
 
-The current candidate proves both packages pass Codex's local structural validator and the pinned official Agent Skills reference validator. Prior candidate bytes passed Gemini workspace discovery, cross-platform CLI execution, cross-machine transfer, current-session Codex dogfood, and a fresh zero-history Codex forward test, but material changes supersede those results until rerun. Independent behavior under Claude Code, Gemini CLI, and other clients remains unclaimed.
+The current release proves open-format validation, Codex independent-agent execution, Gemini CLI discovery, and cross-platform CLI execution. Independent behavior under Claude Code, Gemini CLI models, and other clients remains unclaimed.

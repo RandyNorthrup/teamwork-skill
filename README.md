@@ -27,6 +27,12 @@ See [payload contract](docs/PAYLOAD_CONTRACT.md), [security model](docs/SECURITY
 See [harness compatibility](docs/COMPATIBILITY.md) for Codex, Claude Code, Gemini CLI, and generic Agent Skills installation paths and tested claim boundaries.
 See [independent forward-test evidence](docs/INDEPENDENT_FORWARD_TEST.md) for zero-history prompt controls, artifact hashes, unchanged-test proof, and claim limits.
 
+## Certified release
+
+Teamwork v1.0.0 is certified from source commit `d74b55d74956ce304ee495747729d502d15936d7`. The release archive SHA-256 is `d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34`.
+
+The exact artifact passed the 65-test suite on Windows, Kubuntu, and macOS; Python 3.11–3.14 execution; official Agent Skills and SPDX validation; Gemini CLI discovery; a real Kubuntu-to-macOS transfer; and one isolated zero-history Codex continuation. See [certification evidence](docs/CERTIFICATION.md) and [cross-machine transfer evidence](docs/CROSS_MACHINE_TRANSFER.md) for scope and honest claim boundaries.
+
 The release includes an SPDX 2.3 software bill of materials with SHA-1 and SHA-256 file checksums, per-file release digests, source commit/dirty provenance, and a conservative all-rights-reserved license notice. Clean releases read the version and allowlisted files from immutable Git blobs in the recorded commit with replacement objects disabled, so checkout filters and local replacement refs cannot change artifact bytes. Certification validates the SBOM with the official SPDX Python tools. The SHA-256 sidecar provides integrity, not publisher authentication.
 
 ## Develop and certify

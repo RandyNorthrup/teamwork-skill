@@ -1,0 +1,59 @@
+{
+  "ci": false,
+  "claim_level": "LocalE2ECertified",
+  "coverage": {
+    "branch_coverage": true,
+    "percent": 80.95004897159647,
+    "threshold": 80
+  },
+  "gates": [
+    "sync-check",
+    "version-governance",
+    "compile",
+    "ruff-lint",
+    "ruff-format",
+    "mypy",
+    "draft-2020-12-schema",
+    "packaging-parity",
+    "deterministic-release",
+    "extracted-release-integrity",
+    "official-spdx-validation",
+    "unit",
+    "local-e2e",
+    "branch-coverage-80-percent"
+  ],
+  "generated_at": "2026-08-17T07:30:12Z",
+  "operating_system": "Linux-7.0.0-28-generic-x86_64-with-glibc2.43",
+  "python": "3.14.4",
+  "python_implementation": "CPython",
+  "release": {
+    "file_count": 15,
+    "sha256": "d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34",
+    "source": {
+      "available": true,
+      "commit": "d74b55d74956ce304ee495747729d502d15936d7",
+      "created_at": "2026-08-17T07:24:18Z",
+      "dirty": false,
+      "object_format": "sha1"
+    },
+    "version": "1.0.0"
+  },
+  "result": "passed",
+  "source_commit": "d74b55d74956ce304ee495747729d502d15936d7",
+  "tests": {
+    "errors": [],
+    "failures": [],
+    "result": "passed",
+    "skipped": [
+      {
+        "reason": "Windows junction-specific test",
+        "test": "test_teamwork_payload.TeamworkPayloadE2E.test_windows_junction_alias_shares_operation_lock"
+      },
+      {
+        "reason": "Windows junction-specific test",
+        "test": "test_teamwork_payload.TeamworkPayloadE2E.test_windows_junction_payload_and_git_info_fail_closed"
+      }
+    ],
+    "tests_run": 65
+  }
+}
