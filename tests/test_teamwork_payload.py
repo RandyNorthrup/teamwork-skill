@@ -1405,8 +1405,8 @@ class PackagingTests(unittest.TestCase):
             default_result = json.loads(output.getvalue())
             self.assertEqual("1.0.0", default_result["version"])
             self.assertEqual(
-                archive_repo / "dist" / "teamwork-skills-1.0.0.zip",
-                Path(default_result["archive"]),
+                (archive_repo / "dist" / "teamwork-skills-1.0.0.zip").resolve(),
+                Path(default_result["archive"]).resolve(),
             )
             self.assertFalse(
                 (archive_repo / "dist" / "teamwork-skills-8.8.8.zip").exists()
