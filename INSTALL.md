@@ -22,7 +22,7 @@ Preflight the destination before copying. If either `teamwork-handoff` or `teamw
 
 Rename both verified directories into the skills root. If either rename fails, move any already-renamed directory back into `<install-transaction-root>` and leave no partial live install. Verify the live pair with the same command, replacing the last argument with `<skills-root>`, before restarting harness discovery. Keep both final names unchanged. Never stage beneath a recursively scanned skills root.
 
-These copy/install instructions apply only to recipients authorized by the copyright holder or another applicable agreement; see `LICENSE.txt`.
+Teamwork is distributed under the MIT License. Keep the copyright and permission notice with copies or substantial portions of the software; see `LICENSE.txt`.
 
 - Codex project: `<repo-root>/.agents/skills/`
 - Codex user: `<home>/.agents/skills/`

@@ -369,11 +369,11 @@ def build_sbom(
         "packages": [
             {
                 "SPDXID": "SPDXRef-Package-Teamwork",
-                "copyrightText": "NOASSERTION",
+                "copyrightText": "Copyright (c) 2026 Randy Northrup",
                 "downloadLocation": "NOASSERTION",
                 "filesAnalyzed": True,
-                "licenseConcluded": "NOASSERTION",
-                "licenseDeclared": "LicenseRef-Teamwork-Proprietary",
+                "licenseConcluded": "MIT",
+                "licenseDeclared": "MIT",
                 "name": "teamwork-skills",
                 "versionInfo": version,
             }
@@ -386,13 +386,7 @@ def build_sbom(
             },
             *relationships,
         ],
-        "hasExtractedLicensingInfos": [
-            {
-                "extractedText": "Proprietary. Use requires authorization from the copyright holder or another applicable agreement.",
-                "licenseId": "LicenseRef-Teamwork-Proprietary",
-                "name": "Teamwork Proprietary License",
-            }
-        ],
+        "hasExtractedLicensingInfos": [],
         "spdxVersion": "SPDX-2.3",
     }
     return (json.dumps(document, indent=2, sort_keys=True) + "\n").encode("utf-8")

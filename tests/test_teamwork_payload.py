@@ -1563,6 +1563,15 @@ class PackagingTests(unittest.TestCase):
                 self.assertIn("LICENSE.txt", names)
                 self.assertIn("SBOM.spdx.json", names)
                 self.assertIn("verify_release.py", names)
+                self.assertTrue(
+                    archive.read("LICENSE.txt")
+                    .decode("utf-8")
+                    .startswith("MIT License")
+                )
+                sbom = json.loads(archive.read("SBOM.spdx.json"))
+                self.assertEqual("MIT", sbom["packages"][0]["licenseDeclared"])
+                self.assertEqual("MIT", sbom["packages"][0]["licenseConcluded"])
+                self.assertEqual([], sbom["hasExtractedLicensingInfos"])
                 manifest = json.loads(archive.read("release-manifest.json"))
                 self.assertEqual(
                     "https://agentskills.io/specification",
