@@ -1301,7 +1301,10 @@ class PackagingTests(unittest.TestCase):
             check=True,
         ).stdout
         self.assertEqual(expected_version, version_bytes)
-        self.assertEqual("1.0.0", build_release.parse_version(version_bytes))
+        self.assertEqual(
+            expected_version.decode("utf-8").strip(),
+            build_release.parse_version(version_bytes),
+        )
         self.assertEqual(
             files["teamwork-handoff/scripts/teamwork_payload.py"],
             files["teamwork-resume/scripts/teamwork_payload.py"],
@@ -1370,6 +1373,7 @@ class PackagingTests(unittest.TestCase):
             archive_git("config", "user.email", "replace@example.invalid")
             archive_git("config", "user.name", "Replace Fixture")
             archive_original = archive_git("rev-parse", "HEAD")
+            archive_version = archive_git("show", f"{archive_original}:VERSION")
             (archive_repo / "VERSION").write_text("9.9.9\n", encoding="utf-8")
             archive_git("commit", "-am", "replacement version")
             archive_replacement = archive_git("rev-parse", "HEAD")
@@ -1378,10 +1382,10 @@ class PackagingTests(unittest.TestCase):
             replaced_archive = Path(temporary) / "replace-proof.zip"
             with mock.patch.object(build_release, "ROOT", archive_repo):
                 result = build_release.build(replaced_archive, require_clean=True)
-            self.assertEqual("1.0.0", result["version"])
+            self.assertEqual(archive_version, result["version"])
             with zipfile.ZipFile(replaced_archive) as archive:
                 manifest = json.loads(archive.read("release-manifest.json"))
-            self.assertEqual("1.0.0", manifest["version"])
+            self.assertEqual(archive_version, manifest["version"])
             self.assertEqual(archive_original, manifest["source"]["commit"])
 
             archive_git("replace", "-d", archive_original)
@@ -1391,10 +1395,10 @@ class PackagingTests(unittest.TestCase):
             filtered_archive = Path(temporary) / "working-filter-proof.zip"
             with mock.patch.object(build_release, "ROOT", archive_repo):
                 result = build_release.build(filtered_archive, require_clean=True)
-            self.assertEqual("1.0.0", result["version"])
+            self.assertEqual(archive_version, result["version"])
             with zipfile.ZipFile(filtered_archive) as archive:
                 manifest = json.loads(archive.read("release-manifest.json"))
-            self.assertEqual("1.0.0", manifest["version"])
+            self.assertEqual(archive_version, manifest["version"])
             self.assertEqual(archive_original, manifest["source"]["commit"])
             with (
                 mock.patch.object(build_release, "ROOT", archive_repo),
@@ -1403,9 +1407,11 @@ class PackagingTests(unittest.TestCase):
                 return_code = build_release.main(["--require-clean", "--json"])
             self.assertEqual(0, return_code, output.getvalue())
             default_result = json.loads(output.getvalue())
-            self.assertEqual("1.0.0", default_result["version"])
+            self.assertEqual(archive_version, default_result["version"])
             self.assertEqual(
-                (archive_repo / "dist" / "teamwork-skills-1.0.0.zip").resolve(),
+                (
+                    archive_repo / "dist" / f"teamwork-skills-{archive_version}.zip"
+                ).resolve(),
                 Path(default_result["archive"]).resolve(),
             )
             self.assertFalse(
@@ -1528,7 +1534,7 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual("urn:teamwork:manifest:1.0.0", schema["$id"])
         self.assertFalse(schema["additionalProperties"])
         self.assertEqual(
-            "1.0.0", (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+            "1.0.1", (ROOT / "VERSION").read_text(encoding="utf-8").strip()
         )
 
     def test_release_archive_is_reproducible_and_self_verifying(self) -> None:
@@ -1858,7 +1864,7 @@ class PackagingTests(unittest.TestCase):
                 capture_output=True,
                 check=False,
             )
-            self.assertEqual("1.0.0", installed_version.stdout.strip())
+            self.assertEqual("1.0.1", installed_version.stdout.strip())
             for skill in ("teamwork-handoff", "teamwork-resume"):
                 shutil.rmtree(harness_root / skill)
             self.assertEqual([], list(harness_root.iterdir()))

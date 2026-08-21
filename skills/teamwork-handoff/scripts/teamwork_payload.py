@@ -26,7 +26,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 SCHEMA_NAME = "teamwork-payload"
 SCHEMA_VERSION = "1.0.0"
-SKILL_VERSION = "1.0.0"
+SKILL_VERSION = "1.0.1"
 MIN_PYTHON = (3, 11)
 MIN_GIT = (2, 22)
 DEFAULT_PAYLOAD_DIR = ".teamwork"

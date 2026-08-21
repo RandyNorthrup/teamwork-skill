@@ -95,7 +95,7 @@ That exact artifact passed 65 tests on Windows, Kubuntu, and macOS; Python 3.11â
 The artifact includes an SPDX 2.3 SBOM with SHA-1 and SHA-256 file checksums, per-file release digests, and source provenance. Clean builds read the version and allowlisted files from immutable Git blobs in the recorded commit with replacement objects disabled. The SHA-256 sidecar proves integrity, not publisher identity.
 
 > [!NOTE]
-> Published v1.0.0 predates the MIT relicensing and still embeds its earlier proprietary notice. Rebuild and recertify a new release before describing a downloadable artifact as MIT-distributed.
+> Published v1.0.0 predates the MIT relicensing and still embeds its earlier proprietary notice. Release archives from v1.0.1 onward carry the MIT License and standard SPDX `MIT` package declaration.
 
 ## Development
 

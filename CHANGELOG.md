@@ -4,6 +4,8 @@ All notable changes use Semantic Versioning and are recorded here.
 
 ## Unreleased
 
+## 1.0.1 - 2026-08-21
+
 - Relicensed the repository under the MIT License and updated release SBOM generation and verification to bind the standard SPDX `MIT` identifier.
 - Redesigned the README around the two-skill workflow, quick start, compatibility, security model, certification evidence, and clear release-license scope.
 - Published repository with `main` as default branch and preserved `v1.0.0` tag on exact certified source.
