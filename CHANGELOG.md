@@ -6,6 +6,7 @@ All notable changes use Semantic Versioning and are recorded here.
 
 ## 1.0.1 - 2026-08-21
 
+- Published stable/latest GitHub Release `v1.0.1` from clean source commit `572c6aa2f2b25cfce7393916e23183758851fc88`; the release-grade MIT archive SHA-256 is `0d63f0d01881947d81625012d7692c8f4f849a649c9fe637cde101345183a461`.
 - Relicensed the repository under the MIT License and updated release SBOM generation and verification to bind the standard SPDX `MIT` identifier.
 - Redesigned the README around the two-skill workflow, quick start, compatibility, security model, certification evidence, and clear release-license scope.
 - Published repository with `main` as default branch and preserved `v1.0.0` tag on exact certified source.

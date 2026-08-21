@@ -88,14 +88,14 @@ Read the focused documentation:
 
 ## Certified release
 
-Teamwork v1.0.0 is certified from source commit `d74b55d74956ce304ee495747729d502d15936d7`. Download the [v1.0.0 GitHub Release](https://github.com/RandyNorthrup/teamwork-skill/releases/tag/v1.0.0). Its archive SHA-256 is `d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34`.
+Teamwork v1.0.1 is the latest MIT-licensed release, built from clean source commit `572c6aa2f2b25cfce7393916e23183758851fc88`. Download the [v1.0.1 GitHub Release](https://github.com/RandyNorthrup/teamwork-skill/releases/tag/v1.0.1). Its archive SHA-256 is `0d63f0d01881947d81625012d7692c8f4f849a649c9fe637cde101345183a461`.
 
-That exact artifact passed 65 tests on Windows, Kubuntu, and macOS; Python 3.11–3.14 execution; official Agent Skills and SPDX validation; Gemini CLI discovery; a real Kubuntu-to-macOS transfer; and one isolated zero-history Codex continuation.
+That exact source passed 65 tests across Windows, Ubuntu, and macOS on Python 3.11–3.14 in the tag-triggered hosted certification matrix. The exact published archive reports both `"ok": true` and `"release_grade": true`; its SPDX 2.3 package declares and concludes `MIT`, and its GitHub asset digest matches the published checksum sidecar.
 
 The artifact includes an SPDX 2.3 SBOM with SHA-1 and SHA-256 file checksums, per-file release digests, and source provenance. Clean builds read the version and allowlisted files from immutable Git blobs in the recorded commit with replacement objects disabled. The SHA-256 sidecar proves integrity, not publisher identity.
 
 > [!NOTE]
-> Published v1.0.0 predates the MIT relicensing and still embeds its earlier proprietary notice. Release archives from v1.0.1 onward carry the MIT License and standard SPDX `MIT` package declaration.
+> The real Kubuntu-to-macOS transfer and independent zero-history Codex continuation were executed with v1.0.0. They remain useful unchanged-runtime evidence but are not claimed as exact v1.0.1 artifact reruns. See [certification scope](docs/CERTIFICATION.md) for the version-by-version boundary.
 
 ## Development
 

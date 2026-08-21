@@ -11,7 +11,24 @@
 
 Do not claim higher level from documentation, simulated operating-system paths, declared agent labels, or unexecuted CI configuration.
 
-## Current result
+## Latest release: v1.0.1
+
+Teamwork v1.0.1 achieved `CodeValidated`, `LocalE2ECertified`, and `CrossPlatformCertified` for the exact release source. It also passed the official Agent Skills validator and SPDX validation, but `OpenFormatValidated`, `CrossMachineTransferCertified`, and `IndependentAgentForwardTested` were not rerun against this exact artifact.
+
+- Release source commit: `572c6aa2f2b25cfce7393916e23183758851fc88`
+- Archive: `teamwork-skills-1.0.1.zip`
+- Archive SHA-256: `0d63f0d01881947d81625012d7692c8f4f849a649c9fe637cde101345183a461`
+- Source state: clean, committed, SHA-1 Git object format
+- Release verifier: `ok:true`, `release_grade:true`, 14 payload files plus release manifest
+- License: standard MIT text; SPDX package `licenseDeclared` and `licenseConcluded` both equal `MIT`
+
+Pushed annotated tag `v1.0.1` identifies the release source commit. Stable/latest [GitHub Release v1.0.1](https://github.com/RandyNorthrup/teamwork-skill/releases/tag/v1.0.1) publishes the exact ZIP and checksum sidecar. GitHub asset metadata reports the same ZIP SHA-256 recorded above.
+
+Tag-triggered GitHub Actions run `32508818774` passed the full Windows, Ubuntu, and macOS matrix on Python 3.11–3.14, official Agent Skills validation, tag-to-`VERSION` validation, and deterministic packaging. Local clean-source certification on Windows 11 with Python 3.14.0 passed 65 tests with one expected directory-symlink privilege skip, 81.5867% branch coverage, strict mypy and Ruff gates, JSON Schema validation, extracted-release verification, and official SPDX validation.
+
+The payload schema remains `1.0.0`; v1.0.1 changes the package/skill version, repository license, release license metadata, documentation, and packaging tests without changing payload behavior. The v1.0.0 real cross-machine transfer, non-authoring-harness discovery, and independent-agent evidence therefore remain relevant regression context, but they do not raise the exact v1.0.1 claim level.
+
+## Full six-level baseline: v1.0.0
 
 Teamwork v1.0.0 achieved all six claim levels above for this exact release:
 
@@ -75,7 +92,8 @@ Machine-readable evidence is under `certification-results/`; `index.json` binds 
 
 ## Claim boundaries
 
-- Hosted CI evidence postdates release source `d74b55d74956ce304ee495747729d502d15936d7`; it validates the same runtime files plus CI/test portability fixes and does not redefine or rebuild the certified v1.0.0 artifact.
+- v1.0.1 has exact local and hosted cross-platform source/package evidence, but no new real cross-machine transfer, Gemini CLI discovery, or independent-agent execution. Those higher-level exact-artifact claims remain attached to v1.0.0.
+- Hosted CI evidence for v1.0.0 postdates release source `d74b55d74956ce304ee495747729d502d15936d7`; it validates the same runtime files plus CI/test portability fixes and does not redefine or rebuild the certified v1.0.0 artifact.
 - Cross-machine certification covers one Kubuntu-to-macOS route and one payload, not every transport or filesystem.
 - Independent-agent evidence covers one fresh Codex agent. Gemini model behavior, Claude Code model behavior, and other clients remain unclaimed.
 - Gemini evidence proves local discovery, not model execution.
