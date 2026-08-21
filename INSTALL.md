@@ -4,7 +4,7 @@ Teamwork requires Python 3.11 or newer and Git 2.22 or newer for the certified u
 
 ## Verify and extract a release
 
-Download v1.0.0 ZIP and checksum from the [official GitHub Release](https://github.com/RandyNorthrup/teamwork-skill/releases/tag/v1.0.0). Confirm filenames are `teamwork-skills-1.0.0.zip` and `teamwork-skills-1.0.0.zip.sha256`.
+Download v1.0.1 ZIP and checksum from the [official GitHub Release](https://github.com/RandyNorthrup/teamwork-skill/releases/tag/v1.0.1). Confirm filenames are `teamwork-skills-1.0.1.zip` and `teamwork-skills-1.0.1.zip.sha256`.
 
 1. Compare the downloaded ZIP SHA-256 with its `.zip.sha256` sidecar: use `Get-FileHash <archive> -Algorithm SHA256` on PowerShell, `sha256sum <archive>` on Linux, or `shasum -a 256 <archive>` on stock macOS.
 2. Extract into a new staging directory. Do not merge an unverified archive directly into a live skills directory.
@@ -22,7 +22,7 @@ Preflight the destination before copying. If either `teamwork-handoff` or `teamw
 
 Rename both verified directories into the skills root. If either rename fails, move any already-renamed directory back into `<install-transaction-root>` and leave no partial live install. Verify the live pair with the same command, replacing the last argument with `<skills-root>`, before restarting harness discovery. Keep both final names unchanged. Never stage beneath a recursively scanned skills root.
 
-These copy/install instructions apply only to recipients authorized by the copyright holder or another applicable agreement; see `LICENSE.txt`.
+Teamwork is distributed under the MIT License. Keep the copyright and permission notice with copies or substantial portions of the software; see `LICENSE.txt`.
 
 - Codex project: `<repo-root>/.agents/skills/`
 - Codex user: `<home>/.agents/skills/`

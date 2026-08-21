@@ -233,18 +233,13 @@ def verify(root: Path, installed_skills_root: Path | None = None) -> dict[str, o
         else content_identity(base_hashes)
     )
     created_at = source["created_at"] if source["available"] else "1980-01-01T00:00:00Z"
-    expected_license = {
-        "extractedText": "Proprietary. Use requires authorization from the copyright holder or another applicable agreement.",
-        "licenseId": "LicenseRef-Teamwork-Proprietary",
-        "name": "Teamwork Proprietary License",
-    }
     expected_package = {
         "SPDXID": "SPDXRef-Package-Teamwork",
-        "copyrightText": "NOASSERTION",
+        "copyrightText": "Copyright (c) 2026 Randy Northrup",
         "downloadLocation": "NOASSERTION",
         "filesAnalyzed": True,
-        "licenseConcluded": "NOASSERTION",
-        "licenseDeclared": "LicenseRef-Teamwork-Proprietary",
+        "licenseConcluded": "MIT",
+        "licenseDeclared": "MIT",
         "name": "teamwork-skills",
         "versionInfo": manifest["version"],
     }
@@ -258,7 +253,7 @@ def verify(root: Path, installed_skills_root: Path | None = None) -> dict[str, o
         or sbom["creationInfo"]
         != {"created": created_at, "creators": ["Tool: teamwork-build-release"]}
         or sbom["packages"] != [expected_package]
-        or sbom["hasExtractedLicensingInfos"] != [expected_license]
+        or sbom["hasExtractedLicensingInfos"] != []
         or not isinstance(sbom["files"], list)
     ):
         raise RuntimeError("SPDX SBOM semantic binding is invalid")

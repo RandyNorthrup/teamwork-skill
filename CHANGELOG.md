@@ -4,6 +4,10 @@ All notable changes use Semantic Versioning and are recorded here.
 
 ## Unreleased
 
+## 1.0.1 - 2026-08-21
+
+- Relicensed the repository under the MIT License and updated release SBOM generation and verification to bind the standard SPDX `MIT` identifier.
+- Redesigned the README around the two-skill workflow, quick start, compatibility, security model, certification evidence, and clear release-license scope.
 - Published repository with `main` as default branch and preserved `v1.0.0` tag on exact certified source.
 - Fixed GitHub Actions pip-cache discovery for `requirements-dev.txt` and normalized Windows short/long temporary-path test aliases.
 - Updated artifact upload to pinned `actions/upload-artifact` v7.0.1 for native Node.js 24 execution.

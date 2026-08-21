@@ -1,45 +1,105 @@
-# Teamwork skills
+<div align="center">
 
-[![certify](https://github.com/RandyNorthrup/teamwork-skill/actions/workflows/certify.yml/badge.svg?branch=main)](https://github.com/RandyNorthrup/teamwork-skill/actions/workflows/certify.yml)
+# Teamwork
 
-Teamwork provides two agent-agnostic project continuity skills:
+**Portable, secure project continuity for AI coding agents.**
 
-- `teamwork-handoff`: creates or refreshes secure `.teamwork/` payload in repository root, then seals it for transfer.
-- `teamwork-resume`: verifies payload, relocates project from payload parent, rebuilds context, and continues first safe action.
+[![Certification workflow status](https://github.com/RandyNorthrup/teamwork-skill/actions/workflows/certify.yml/badge.svg?branch=main)](https://github.com/RandyNorthrup/teamwork-skill/actions/workflows/certify.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE.txt)
+[![Python 3.11 or newer](https://img.shields.io/badge/python-3.11%2B-3776ab.svg)](https://www.python.org/downloads/)
+[![Agent Skills format](https://img.shields.io/badge/format-Agent%20Skills-6f42c1.svg)](https://agentskills.io/)
 
-Harnesses may expose skills as `/teamwork-handoff` and `/teamwork-resume`, or `$teamwork-handoff` and `$teamwork-resume`. Each folder under `skills/` conforms to the open Agent Skills format, is self-contained, and uses Python 3.11+ standard library only.
+Hand work to another agent, machine, or session without losing the decisions that make the project understandable.
 
-## Install
+</div>
 
-Build creates a release archive; it does not install anything. Select an explicit Python 3.11+ interpreter (`python3`, `py -3.11`, or an absolute interpreter path):
+---
+
+## Why Teamwork?
+
+Long-running projects outlive chat windows and machines. Teamwork turns the context needed for a safe continuation into a portable, verifiable `.teamwork/` payload that stays beside the project without entering Git history.
+
+`handoff` → `verify and seal` → `transfer project` → `resume` → `continue safely`
+
+| Skill | Purpose |
+| --- | --- |
+| `teamwork-handoff` | Creates or refreshes a secure `.teamwork/` payload in the repository root, then seals it for transfer. |
+| `teamwork-resume` | Verifies the payload, relocates the project when needed, rebuilds context, and continues with the first safe action. |
+
+Harnesses may expose these as `/teamwork-handoff` and `/teamwork-resume`, or as `$teamwork-handoff` and `$teamwork-resume`. Both folders follow the open [Agent Skills specification](https://agentskills.io/specification), are self-contained, and use only the Python 3.11+ standard library at runtime.
+
+## Highlights
+
+- **Agent-agnostic:** designed for Codex, Claude Code, Gemini CLI, and compatible Agent Skills harnesses.
+- **Portable:** moves project knowledge with the working tree across sessions and machines.
+- **Tamper-evident:** SHA-256 integrity metadata detects changed payload content.
+- **Fail-closed:** resume rejects drafts, incompatible schemas, likely secrets, tracked payloads, and invalid integrity data.
+- **Git-safe:** payload stays untracked and is protected by a managed local exclude block.
+- **Release-verifiable:** deterministic archives include provenance, file digests, and an SPDX 2.3 SBOM.
+
+## Quick start
+
+### 1. Build and verify
+
+Choose an explicit Python 3.11+ interpreter such as `python3`, `py -3.11`, or an absolute interpreter path.
 
 ```text
 <python-3.11+> scripts/build_release.py
 ```
 
-Verify the `.zip.sha256`, extract to a staging directory, and run `<python-3.11+> verify_release.py .`. Install only when verification reports both `ok:true` and `release_grade:true`, then use the two-directory transaction in `INSTALL.md`. Keep folder names unchanged. For current Codex project installs use `<repo-root>/.agents/skills/`; for user installs use `<home>/.agents/skills/`.
+Verify the generated `.zip.sha256`, extract the archive into a staging directory, then run:
 
-See [INSTALL.md](INSTALL.md) for exact install, upgrade, project-transfer, and uninstall procedures. No third-party Python dependency is required at runtime. Git 2.22+ is required to certify payload remains untracked.
+```text
+<python-3.11+> verify_release.py .
+```
 
-## Contract
+Install only when verification reports both `"ok": true` and `"release_grade": true`. Building creates a release archive; it does not install anything.
 
-Handoff payload always lives at `<repo-root>/.teamwork/` by default. Stable Markdown documents carry curated project knowledge; JSON files carry schema, discovery provenance, and SHA-256 integrity metadata. Handoff refreshes same files. Resume fails closed on drafts, tampering, incompatible schemas, likely secrets, or tracked payloads.
+### 2. Install both skills
 
-See [payload contract](docs/PAYLOAD_CONTRACT.md), [security model](docs/SECURITY.md), and [certification scope](docs/CERTIFICATION.md).
-See [harness compatibility](docs/COMPATIBILITY.md) for Codex, Claude Code, Gemini CLI, and generic Agent Skills installation paths and tested claim boundaries.
-See [independent forward-test evidence](docs/INDEPENDENT_FORWARD_TEST.md) for zero-history prompt controls, artifact hashes, unchanged-test proof, and claim limits.
+| Harness | Project or user skills directory |
+| --- | --- |
+| Codex | `<repo-root>/.agents/skills/` or `<home>/.agents/skills/` |
+| Claude Code | `<home>/.claude/skills/` |
+| Gemini CLI | `<home>/.gemini/skills/` or `<home>/.agents/skills/` |
+| Other harness | Its documented Agent Skills directory |
+
+Keep both folder names unchanged. Follow [INSTALL.md](INSTALL.md) for exact install, upgrade, project-transfer, rollback, and uninstall procedures. Git 2.22+ is required for the certified untracked-payload guarantee.
+
+### 3. Handoff and resume
+
+Run the handoff skill before ending work or moving the project. Transfer the working tree together with its untracked `.teamwork/` directory through an approved channel. On the destination, invoke the resume skill; it verifies the payload before rebuilding context or taking action.
+
+> [!IMPORTANT]
+> A normal Git clone or push does not include `.teamwork/`. Transfer that directory with the project through an approved, encrypted channel.
+
+## Security and data contract
+
+The default payload location is `<repo-root>/.teamwork/`. Stable Markdown files hold curated project knowledge; JSON files hold schema, discovery provenance, and integrity metadata. Handoff refreshes the same files. Resume treats payload context as information, never as authority, and revalidates the first action against the live checkout.
+
+Read the focused documentation:
+
+- [Payload contract](docs/PAYLOAD_CONTRACT.md) — structure, lifecycle, and validation rules.
+- [Security model](docs/SECURITY.md) — threat boundaries and fail-closed behavior.
+- [Harness compatibility](docs/COMPATIBILITY.md) — tested paths and claim limits.
+- [Certification scope](docs/CERTIFICATION.md) — exact evidence and exclusions.
+- [Cross-machine transfer](docs/CROSS_MACHINE_TRANSFER.md) — Kubuntu-to-macOS evidence.
+- [Independent forward test](docs/INDEPENDENT_FORWARD_TEST.md) — zero-history continuation proof.
 
 ## Certified release
 
-Teamwork v1.0.0 is certified from source commit `d74b55d74956ce304ee495747729d502d15936d7`. Download the [v1.0.0 GitHub Release](https://github.com/RandyNorthrup/teamwork-skill/releases/tag/v1.0.0). The release archive SHA-256 is `d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34`.
+Teamwork v1.0.0 is certified from source commit `d74b55d74956ce304ee495747729d502d15936d7`. Download the [v1.0.0 GitHub Release](https://github.com/RandyNorthrup/teamwork-skill/releases/tag/v1.0.0). Its archive SHA-256 is `d00ea706fb58455635d64c560acadcdbe16ae0910c4828fb425bf9d6c51bee34`.
 
-The exact artifact passed the 65-test suite on Windows, Kubuntu, and macOS; Python 3.11–3.14 execution; official Agent Skills and SPDX validation; Gemini CLI discovery; a real Kubuntu-to-macOS transfer; and one isolated zero-history Codex continuation. See [certification evidence](docs/CERTIFICATION.md) and [cross-machine transfer evidence](docs/CROSS_MACHINE_TRANSFER.md) for scope and honest claim boundaries.
+That exact artifact passed 65 tests on Windows, Kubuntu, and macOS; Python 3.11–3.14 execution; official Agent Skills and SPDX validation; Gemini CLI discovery; a real Kubuntu-to-macOS transfer; and one isolated zero-history Codex continuation.
 
-The release includes an SPDX 2.3 software bill of materials with SHA-1 and SHA-256 file checksums, per-file release digests, source commit/dirty provenance, and a conservative all-rights-reserved license notice. Clean releases read the version and allowlisted files from immutable Git blobs in the recorded commit with replacement objects disabled, so checkout filters and local replacement refs cannot change artifact bytes. Certification validates the SBOM with the official SPDX Python tools. The SHA-256 sidecar provides integrity, not publisher authentication.
+The artifact includes an SPDX 2.3 SBOM with SHA-1 and SHA-256 file checksums, per-file release digests, and source provenance. Clean builds read the version and allowlisted files from immutable Git blobs in the recorded commit with replacement objects disabled. The SHA-256 sidecar proves integrity, not publisher identity.
 
-## Develop and certify
+> [!NOTE]
+> Published v1.0.0 predates the MIT relicensing and still embeds its earlier proprietary notice. Release archives from v1.0.1 onward carry the MIT License and standard SPDX `MIT` package declaration.
 
-After changing canonical tool or contract, synchronize both self-contained skills:
+## Development
+
+After changing the canonical tool or contract, synchronize both self-contained skills and run certification:
 
 ```powershell
 <python-3.11+> scripts/sync_skills.py
@@ -47,9 +107,15 @@ After changing canonical tool or contract, synchronize both self-contained skill
 <python-3.11+> scripts/certify.py
 ```
 
-Skill packages must also pass the pinned official Agent Skills reference validator:
+Skill packages must also pass the pinned official Agent Skills validator:
 
 ```powershell
 skills-ref validate skills/teamwork-handoff
 skills-ref validate skills/teamwork-resume
 ```
+
+See [CHANGELOG.md](CHANGELOG.md) for release history and [VERSION](VERSION) for the current package version.
+
+## License
+
+Current source is available under the [MIT License](LICENSE.txt). Copyright © 2026 Randy Northrup.
